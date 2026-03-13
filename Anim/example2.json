@@ -1,0 +1,311 @@
+{
+  "tool": "AnimCraft - Animation Reference",
+  "timestamp": "2026-03-13T17:39:37.516Z",
+  "totalElements": 7,
+  "elements": [
+    {
+      "id": "shape_k5v5vln0g",
+      "name": "Body",
+      "type": "button",
+      "initialState": {
+        "x": 274,
+        "y": 252,
+        "scaleX": 0.6,
+        "scaleY": 1.2,
+        "rotation": 0,
+        "opacity": 0,
+        "color": "#3b82f6"
+      },
+      "groupId": "grp_gpb5t8o2p",
+      "sequence": []
+    },
+    {
+      "id": "shape_1xe6mzork",
+      "name": "Item 1XE6MZORK",
+      "type": "item",
+      "initialState": {
+        "x": 271,
+        "y": 240,
+        "scaleX": 0.8,
+        "scaleY": 1.6,
+        "rotation": 0,
+        "opacity": 0,
+        "color": "#004cff"
+      },
+      "groupId": "grp_0wz15aj7e",
+      "sequence": []
+    },
+    {
+      "id": "shape_tyynuvgtb",
+      "name": "Item TYYNUVGTB",
+      "type": "item",
+      "initialState": {
+        "x": 274,
+        "y": 243,
+        "scaleX": 0.5,
+        "scaleY": 1,
+        "rotation": 0,
+        "opacity": 0,
+        "color": "#9aa1fe"
+      },
+      "groupId": "grp_0wz15aj7e",
+      "sequence": []
+    },
+    {
+      "id": "shape_zf119nfaz",
+      "name": "Sword",
+      "type": "item",
+      "initialState": {
+        "x": 312,
+        "y": 254,
+        "scaleX": 0.6,
+        "scaleY": 0.6,
+        "rotation": 0,
+        "opacity": 0,
+        "color": "#f59e0b",
+        "icon": "ph-sword"
+      },
+      "groupId": "grp_gpb5t8o2p",
+      "sequence": [
+        {
+          "type": "move",
+          "step": 5,
+          "duration": 0.5,
+          "easeTransition": "Linear",
+          "easeDirection": "In",
+          "vfxEnabled": true,
+          "vfxTiming": "before",
+          "targetX": 858,
+          "targetY": 237,
+          "startX": 312,
+          "startY": 254,
+          "ctrlX": 654,
+          "ctrlY": 153
+        },
+        {
+          "type": "rotate",
+          "step": 6,
+          "duration": 1,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "vfxEnabled": false,
+          "vfxTiming": "before",
+          "targetRotation": 720,
+          "relative": false
+        },
+        {
+          "type": "move",
+          "step": 6,
+          "duration": 1,
+          "easeTransition": "Linear",
+          "easeDirection": "In",
+          "vfxEnabled": true,
+          "vfxTiming": "before",
+          "targetX": 1079,
+          "targetY": 281,
+          "startX": 858,
+          "startY": 237,
+          "ctrlX": 1034,
+          "ctrlY": 62
+        },
+        {
+          "type": "move",
+          "step": 7,
+          "duration": 0.5,
+          "easeTransition": "Linear",
+          "easeDirection": "In",
+          "vfxEnabled": false,
+          "vfxTiming": "before",
+          "targetX": 944,
+          "targetY": 499,
+          "startX": 1079,
+          "startY": 281,
+          "ctrlX": 973,
+          "ctrlY": 237
+        },
+        {
+          "type": "rotate",
+          "step": 7,
+          "duration": 0.5,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "vfxEnabled": false,
+          "vfxTiming": "before",
+          "targetRotation": 720,
+          "relative": false
+        }
+      ]
+    },
+    {
+      "id": "shape_ibmk5ig6g",
+      "name": "Enemy 1",
+      "type": "item",
+      "initialState": {
+        "x": 899,
+        "y": 238,
+        "scaleX": 1,
+        "scaleY": 1,
+        "rotation": 0,
+        "opacity": 1,
+        "color": "#e44949",
+        "icon": "ph-skull"
+      },
+      "groupId": "grp_5ythhdkrf",
+      "sequence": [
+        {
+          "type": "move",
+          "step": 6,
+          "duration": 0.5,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "vfxEnabled": false,
+          "vfxTiming": "before",
+          "targetX": 1349,
+          "targetY": 279,
+          "startX": 899,
+          "startY": 238,
+          "ctrlX": 1203,
+          "ctrlY": 64
+        },
+        {
+          "type": "rotate",
+          "step": 6,
+          "duration": 1,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "vfxEnabled": false,
+          "vfxTiming": "before",
+          "targetRotation": 720,
+          "relative": false
+        }
+      ]
+    },
+    {
+      "id": "shape_tpxkhazpj",
+      "name": "Enemy 1 (Copy)",
+      "type": "item",
+      "initialState": {
+        "x": 1135,
+        "y": 328,
+        "scaleX": 1,
+        "scaleY": 1,
+        "rotation": 0,
+        "opacity": 1,
+        "color": "#e44949",
+        "icon": "ph-skull"
+      },
+      "groupId": "grp_it3zovzz2",
+      "sequence": []
+    },
+    {
+      "id": "shape_pjhuv90i0",
+      "name": "Item PJHUV90I0",
+      "type": "item",
+      "initialState": {
+        "x": 1094,
+        "y": 313,
+        "scaleX": 0.8,
+        "scaleY": 0.8,
+        "rotation": 0,
+        "opacity": 1,
+        "color": "#69522b",
+        "icon": "ph-shield"
+      },
+      "groupId": "grp_it3zovzz2",
+      "sequence": [
+        {
+          "type": "bounce",
+          "step": 7,
+          "duration": 1,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "vfxEnabled": false,
+          "vfxTiming": "before"
+        },
+        {
+          "type": "move",
+          "step": 8,
+          "duration": 1,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "vfxEnabled": false,
+          "vfxTiming": "before",
+          "targetX": 1050,
+          "targetY": 466,
+          "startX": 1094,
+          "startY": 313,
+          "ctrlX": 1044,
+          "ctrlY": 341
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "grp_0wz15aj7e",
+      "name": "Portal",
+      "childIds": [
+        "shape_1xe6mzork",
+        "shape_tyynuvgtb"
+      ],
+      "parentGroupId": null,
+      "sequence": [
+        {
+          "type": "fade",
+          "step": 1,
+          "duration": 1,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "targetOpacity": 1
+        }
+      ]
+    },
+    {
+      "id": "grp_gpb5t8o2p",
+      "name": "Hero",
+      "childIds": [
+        "shape_k5v5vln0g",
+        "shape_zf119nfaz"
+      ],
+      "parentGroupId": null,
+      "sequence": [
+        {
+          "type": "fade",
+          "step": 2,
+          "duration": 1,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "targetOpacity": 1
+        },
+        {
+          "type": "move",
+          "step": 3,
+          "duration": 1,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "targetX": 103,
+          "targetY": 23
+        }
+      ]
+    },
+    {
+      "id": "grp_5ythhdkrf",
+      "name": "Enemies",
+      "childIds": [
+        "shape_ibmk5ig6g"
+      ],
+      "parentGroupId": null,
+      "sequence": []
+    },
+    {
+      "id": "grp_it3zovzz2",
+      "name": "Shiled Enemy",
+      "childIds": [
+        "shape_tpxkhazpj",
+        "shape_pjhuv90i0"
+      ],
+      "parentGroupId": null,
+      "sequence": []
+    }
+  ]
+}

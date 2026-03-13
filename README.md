@@ -14,7 +14,8 @@ AnimCraft is an interactive 2D animation sequencing, mocking, and graphing tool 
   - Create groups to organize elements and build hierarchies. Parents can safely nest within parents preventing cycles.
   - Apply animations to the group itself. A Group's **Move** animation computes as a cohesive **relative offset** delta across all shapes inside that group (recursively applied down the tree), sharing identical easing patterns.
 - **Particle VFX Engine Additions:** Some components trigger simple, lightweight programmatic particle effects entirely styled in JS/GSAP (no external sprite assumptions required).
-- **Import / Export JSON:** Easily dump and restore states into a simple JSON config. Copy configuration straight toclipboard for code integration or save your drafts.
+- **Import / Export JSON:** Easily dump and restore states into a simple JSON config. Copy configuration straight to clipboard for code integration or save your drafts.
+  - 🌟 **Highly Recommended:** Check out `Anim/example.json` to get a comprehensive overview of the tool! You can import this file via the **Import JSON** button to see a pre-built animated sequence in action.
 
 ## Quick Start
 
@@ -27,3 +28,6 @@ AnimCraft is an interactive 2D animation sequencing, mocking, and graphing tool 
 
 ## Technical Details
 AnimCraft relies strictly on modern web APIs. No bundlers or Node prerequisites exist to execute the application—it handles its own DOM updates natively while using GSAP (via CDN) to render physics-driven or tween-based logic. Easing curve nomenclatures line up precisely with universally recognized formats (`Quad.easeInOut`, `Elastic.easeOut`).
+
+## Disclaimer
+*"This is the best version that could possibly be created at this very moment in time... so maybe, just maybe, there won't be any more updates until the stars align perfectly in the future!"* 🚀

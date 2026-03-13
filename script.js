@@ -118,10 +118,9 @@ class MoveAction extends BaseAction {
             };
         }
 
-        if (this.ctrlX !== undefined && this.startX !== undefined) {
+        if (this.ctrlX !== undefined) {
             const proxy = { p: 0 };
-            const P0x = this.startX;
-            const P0y = this.startY;
+            let P0x, P0y;
             const P1x = this.ctrlX;
             const P1y = this.ctrlY;
             const P2x = parseFloat(this.targetX);
@@ -130,7 +129,14 @@ class MoveAction extends BaseAction {
             const el = shape.el;
             const originalOnUpdate = vars.onUpdate;
             
+            // Capture start position from live DOM when tween fires
+            vars.onStart = function() {
+                P0x = gsap.getProperty(el, "x");
+                P0y = gsap.getProperty(el, "y");
+            };
+            
             vars.onUpdate = () => {
+                if (P0x === undefined) return;
                 const t = proxy.p;
                 const x = Math.pow(1-t, 2)*P0x + 2*(1-t)*t*P1x + Math.pow(t, 2)*P2x;
                 const y = Math.pow(1-t, 2)*P0y + 2*(1-t)*t*P1y + Math.pow(t, 2)*P2y;
@@ -399,13 +405,7 @@ class CanvasShape {
         this.el.className = `shape-element shape-${this.type}`;
         this.el.dataset.id = this.id;
         
-        // Internal content
-        if (this.type === 'button') {
-            this.el.innerHTML = '';
-        } else if (this.type === 'item') {
-            this.el.innerHTML = '<i class="ph-fill ph-sword text-2xl text-white"></i>';
-        }
-
+        this.applyIcon(); // Apply icon based on this.icon property
         this.applyTransform();
         this.applyColor();
 
@@ -427,27 +427,44 @@ class CanvasShape {
     }
 
     applyColor() {
-        if (this.type === 'button' || this.type === 'item') {
-            this.el.style.backgroundColor = this.color;
+        this.el.style.backgroundColor = this.color;
+    }
+
+    applyIcon() {
+        if (this.icon) {
+            this.el.innerHTML = `<i class="ph-fill ${this.icon} text-2xl text-white drop-shadow-md"></i>`;
         } else {
-            this.el.style.backgroundColor = this.color;
+            this.el.innerHTML = '';
         }
     }
 
     setupDragging() {
         let isDragging = false;
         let startX, startY;
-        let initialX, initialY;
+        let initialPositions = [];
 
         this.el.addEventListener('mousedown', (e) => {
-            // Select shape
-            selectShape(this.id);
+            let isPartIfSelectedGroup = false;
+            if (State.selectedGroupId) {
+                const grpAllCh = getGroupAllChildren(getGroup(State.selectedGroupId));
+                if (grpAllCh.includes(this.id)) isPartIfSelectedGroup = true;
+            }
+
+            if (!isPartIfSelectedGroup) {
+                selectShape(this.id);
+                initialPositions = [{ shape: this, initialX: this.x, initialY: this.y }];
+            } else {
+                // Drag the whole group
+                const grpAllCh = getGroupAllChildren(getGroup(State.selectedGroupId));
+                initialPositions = grpAllCh.map(cid => {
+                    const s = getShape(cid);
+                    return s ? { shape: s, initialX: s.x, initialY: s.y } : null;
+                }).filter(Boolean);
+            }
             
             isDragging = true;
             startX = e.clientX;
             startY = e.clientY;
-            initialX = this.x;
-            initialY = this.y;
             
             this.el.style.cursor = 'grabbing';
             e.stopPropagation();
@@ -459,13 +476,13 @@ class CanvasShape {
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
             
-            this.x = initialX + dx;
-            this.y = initialY + dy;
+            initialPositions.forEach(pos => {
+                pos.shape.x = pos.initialX + dx;
+                pos.shape.y = pos.initialY + dy;
+                pos.shape.applyTransform();
+            });
             
-            this.applyTransform();
-            
-            // Update inspector if this is selected
-            if (State.selectedShapeId === this.id) {
+            if (State.selectedShapeId === this.id && initialPositions.length === 1) {
                 document.getElementById('prop-x').value = Math.round(this.x);
                 document.getElementById('prop-y').value = Math.round(this.y);
             }
@@ -648,6 +665,7 @@ function addNewShape(type) {
     State.shapes.push(shape);
     
     selectShape(id);
+    renderOutliner();
 }
 
 function addNewGroup() {
@@ -706,9 +724,15 @@ function selectGroup(id) {
     const placeholder = document.getElementById('inspector-placeholder');
 
     if (id) {
+        const grp = getGroup(id);
+        const allChildIds = getGroupAllChildren(grp);
+        document.querySelectorAll('.shape-element').forEach(el => {
+            if (allChildIds.includes(el.dataset.id)) el.classList.add('selected');
+        });
+
         inspector.classList.remove('hidden');
         placeholder.classList.add('hidden');
-        populateGroupInspector(getGroup(id));
+        populateGroupInspector(grp);
     } else {
         inspector.classList.add('hidden');
         placeholder.classList.remove('hidden');
@@ -765,19 +789,27 @@ function renderOutliner() {
     emptyUI.style.display = 'none';
 
     // Helper: build a rename-able row
-    const makeRow = (label, iconClass, isSelected, colorCls, onClick, onRename) => {
+    const makeRow = (id, isGroup, label, iconClass, isSelected, colorCls, onClick, onRename) => {
         const item = document.createElement('div');
-        item.className = `flex items-center justify-between p-2 rounded cursor-pointer transition-colors border ${
+        item.className = `group flex items-center justify-between p-2 rounded cursor-pointer transition-colors border ${
             isSelected ? 'bg-indigo-600 text-white border-indigo-500' : `${colorCls} text-gray-300 hover:bg-gray-700 border-transparent`
         }`;
         item.innerHTML = `
             <div class="flex items-center gap-2 flex-1 min-w-0">
                 <i class="ph ${iconClass} ${isSelected ? 'text-indigo-200' : 'text-gray-500'}"></i>
-                <span class="text-xs font-medium truncate row-name-display">${label}</span>
-                <input type="text" class="text-xs text-black hidden w-full px-1 rounded row-name-input outline-none ring-1 ring-indigo-500" value="${label}" />
+                <span class="text-xs font-medium truncate flex-1 row-name-display">${label}</span>
+                <input type="text" class="text-xs text-black hidden w-full px-1 flex-1 rounded row-name-input outline-none ring-1 ring-indigo-500" value="${label}" />
+                <div class="flex flex-col ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button class="hover:text-white text-gray-400 p-0 leading-none btn-move-up" title="Move Up"><i class="ph ph-caret-up text-[10px]"></i></button>
+                    <button class="hover:text-white text-gray-400 p-0 leading-none btn-move-down" title="Move Down"><i class="ph ph-caret-down text-[10px]"></i></button>
+                </div>
             </div>
         `;
-        item.addEventListener('click', (e) => { if(e.target.tagName !== 'INPUT') onClick(); });
+        item.addEventListener('click', (e) => { if(e.target.tagName !== 'INPUT' && !e.target.closest('button')) onClick(); });
+        
+        item.querySelector('.btn-move-up').addEventListener('click', (e) => { e.stopPropagation(); moveItem(id, isGroup, 'up'); });
+        item.querySelector('.btn-move-down').addEventListener('click', (e) => { e.stopPropagation(); moveItem(id, isGroup, 'down'); });
+        
         const display = item.querySelector('.row-name-display');
         const input = item.querySelector('.row-name-input');
         item.addEventListener('dblclick', () => {
@@ -798,7 +830,7 @@ function renderOutliner() {
     const renderGroup = (grp, depth) => {
         const isSelected = State.selectedGroupId === grp.id;
         const grpRow = makeRow(
-            grp.name, 'ph-folder', isSelected, 'bg-gray-800',
+            grp.id, true, grp.name, 'ph-folder', isSelected, 'bg-gray-800',
             () => selectGroup(grp.id),
             (name) => { grp.name = name; }
         );
@@ -825,7 +857,7 @@ function renderOutliner() {
             let childIcon = 'ph-rectangle';
             if(shape.type === 'item') childIcon = 'ph-circle';
             const childRow = makeRow(
-                shape.name, childIcon, isChildSelected, 'bg-gray-800/60',
+                shape.id, false, shape.name, childIcon, isChildSelected, 'bg-gray-800/60',
                 () => selectShape(shape.id),
                 (name) => { shape.name = name; }
             );
@@ -847,12 +879,82 @@ function renderOutliner() {
         if(shape.type === 'item') iconClass = 'ph-circle';
         if(shape.type === 'star') iconClass = 'ph-star';
         const item = makeRow(
-            shape.name, iconClass, isSelected, 'bg-gray-800',
+            shape.id, false, shape.name, iconClass, isSelected, 'bg-gray-800',
             () => selectShape(shape.id),
             (name) => { shape.name = name; }
         );
         list.appendChild(item);
     });
+
+    updateZIndices();
+}
+
+function updateZIndices() {
+    let z = 1;
+    const setZ = (id) => {
+        const s = getShape(id);
+        if(s && s.el) { s.el.style.zIndex = z++; }
+    };
+
+    const traverseGroup = (grp) => {
+        State.groups.filter(g => g.parentGroupId === grp.id).forEach(traverseGroup);
+        grp.childIds.forEach(setZ);
+    };
+
+    State.groups.filter(g => !g.parentGroupId).forEach(traverseGroup);
+    State.shapes.forEach(shape => {
+        if(!shape.groupId) setZ(shape.id);
+    });
+}
+
+function moveItem(id, isGroup, dir) {
+    const swap = (arr, i, j) => {
+        const t = arr[i];
+        arr[i] = arr[j];
+        arr[j] = t;
+    };
+
+    if (isGroup) {
+        const grp = getGroup(id);
+        const siblings = State.groups.filter(g => g.parentGroupId === grp.parentGroupId);
+        const idx = siblings.findIndex(g => g.id === id);
+        
+        if (dir === 'up' && idx > 0) {
+            const swapWithId = siblings[idx - 1].id;
+            const global1 = State.groups.findIndex(g => g.id === id);
+            const global2 = State.groups.findIndex(g => g.id === swapWithId);
+            swap(State.groups, global1, global2);
+        } else if (dir === 'down' && idx < siblings.length - 1) {
+            const swapWithId = siblings[idx + 1].id;
+            const global1 = State.groups.findIndex(g => g.id === id);
+            const global2 = State.groups.findIndex(g => g.id === swapWithId);
+            swap(State.groups, global1, global2);
+        }
+    } else {
+        const shape = getShape(id);
+        if (shape.groupId) {
+            const grp = getGroup(shape.groupId);
+            const idx = grp.childIds.indexOf(id);
+            if (dir === 'up' && idx > 0) swap(grp.childIds, idx, idx - 1);
+            else if (dir === 'down' && idx < grp.childIds.length - 1) swap(grp.childIds, idx, idx + 1);
+        } else {
+            const siblings = State.shapes.filter(s => !s.groupId);
+            const idx = siblings.findIndex(s => s.id === id);
+            
+            if (dir === 'up' && idx > 0) {
+                const swapWithId = siblings[idx - 1].id;
+                const global1 = State.shapes.findIndex(s => s.id === id);
+                const global2 = State.shapes.findIndex(s => s.id === swapWithId);
+                swap(State.shapes, global1, global2);
+            } else if (dir === 'down' && idx < siblings.length - 1) {
+                const swapWithId = siblings[idx + 1].id;
+                const global1 = State.shapes.findIndex(s => s.id === id);
+                const global2 = State.shapes.findIndex(s => s.id === swapWithId);
+                swap(State.shapes, global1, global2);
+            }
+        }
+    }
+    renderOutliner();
 }
 
 function renderTimelineOverview() {
@@ -947,24 +1049,58 @@ function setupInspectorEvents() {
         if (s) { s.y = parseFloat(e.target.value); s.applyTransform(); }
     });
     document.getElementById('prop-scale-x').addEventListener('change', (e) => {
-        const s = getShape(id());
-        if (s) { s.scaleX = parseFloat(e.target.value); s.applyTransform(); }
+        const val = parseFloat(e.target.value);
+        if (id()) {
+            const s = getShape(id());
+            if (s) { s.scaleX = val; s.applyTransform(); }
+        } else if (State.selectedGroupId && !isNaN(val)) {
+            const grpAllCh = getGroupAllChildren(getGroup(State.selectedGroupId));
+            grpAllCh.forEach(cid => {
+                const child = getShape(cid);
+                if (child) { child.scaleX *= val; child.applyTransform(); }
+            });
+            e.target.value = '';
+        }
     });
     document.getElementById('prop-scale-y').addEventListener('change', (e) => {
-        const s = getShape(id());
-        if (s) { s.scaleY = parseFloat(e.target.value); s.applyTransform(); }
+        const val = parseFloat(e.target.value);
+        if (id()) {
+            const s = getShape(id());
+            if (s) { s.scaleY = val; s.applyTransform(); }
+        } else if (State.selectedGroupId && !isNaN(val)) {
+            const grpAllCh = getGroupAllChildren(getGroup(State.selectedGroupId));
+            grpAllCh.forEach(cid => {
+                const child = getShape(cid);
+                if (child) { child.scaleY *= val; child.applyTransform(); }
+            });
+            e.target.value = '';
+        }
     });
     document.getElementById('prop-rotation').addEventListener('change', (e) => {
         const s = getShape(id());
         if (s) { s.rotation = parseFloat(e.target.value); s.applyTransform(); }
     });
     document.getElementById('prop-opacity').addEventListener('change', (e) => {
-        const s = getShape(id());
-        if (s) { s.opacity = parseFloat(e.target.value); s.applyTransform(); }
+        const val = parseFloat(e.target.value);
+        if (id()) {
+            const s = getShape(id());
+            if (s) { s.opacity = val; s.applyTransform(); }
+        } else if (State.selectedGroupId && !isNaN(val)) {
+            const grpAllCh = getGroupAllChildren(getGroup(State.selectedGroupId));
+            grpAllCh.forEach(cid => {
+                const child = getShape(cid);
+                if (child) { child.opacity = val; child.applyTransform(); }
+            });
+            e.target.value = '';
+        }
     });
     document.getElementById('prop-color').addEventListener('input', (e) => {
         const s = getShape(id());
         if (s) { s.color = e.target.value; s.applyColor(); }
+    });
+    document.getElementById('prop-icon').addEventListener('change', (e) => {
+        const s = getShape(id());
+        if (s) { s.icon = e.target.value; s.applyIcon(); }
     });
 
     // Group assignment
@@ -992,7 +1128,8 @@ function setupInspectorEvents() {
         const newId = generateId();
         const clone = new CanvasShape(newId, original.type, original.x + 30, original.y + 30, {
             name: `${original.name} (Copy)`,
-            color: original.color
+            color: original.color,
+            icon: original.icon
         });
         clone.scaleX = original.scaleX;
         clone.scaleY = original.scaleY;
@@ -1000,6 +1137,7 @@ function setupInspectorEvents() {
         clone.opacity = original.opacity !== undefined ? original.opacity : 1;
         clone.applyTransform();
         clone.applyColor();
+        clone.applyIcon();
 
         // Deep copy animations with new IDs via ActionFactory
         clone.animations = original.animations.map(a => {
@@ -1036,8 +1174,18 @@ function setupInspectorEvents() {
         State.groups.forEach(g => { g.animations.forEach(a => { if (a.step > maxStep) maxStep = a.step; }); });
         const newStep = maxStep > 0 ? maxStep + 1 : 1;
 
-        const startX = s ? s.x + 100 : 100; // for groups: relative offset delta
-        const startY = s ? s.y : 0;
+        // Default target: last move target + 100 offset, or init pos + 100
+        let lastX = s ? s.x : 0;
+        let lastY = s ? s.y : 0;
+        const moveAnims = target.animations.filter(a => a.type === 'move');
+        if (moveAnims.length > 0) {
+            const last = moveAnims[moveAnims.length - 1];
+            lastX = last.targetX;
+            lastY = last.targetY;
+        }
+
+        const startX = lastX + 100;
+        const startY = lastY;
 
         target.animations.push(new MoveAction({
             step: newStep,
@@ -1049,7 +1197,7 @@ function setupInspectorEvents() {
         }));
         
         if (s) renderAnimationList(s);
-        else renderGroupAnimationList(grp);
+        else renderAnimationList(grp);
         updateTrajectories();
     });
 
@@ -1070,6 +1218,9 @@ function populateGroupInspector(grp) {
     document.getElementById('prop-rotation').value = '';
     document.getElementById('prop-opacity').value = '';
     document.getElementById('prop-color').value = '#6366f1';
+    
+    const iconSelect = document.getElementById('prop-icon');
+    if (iconSelect) { iconSelect.value = ''; iconSelect.disabled = true; }
 
     // Parent group dropdown (excluding self, ancestors to prevent cycles)
     const groupSelect = document.getElementById('prop-group-assign');
@@ -1109,15 +1260,16 @@ function populateGroupInspector(grp) {
         selectGroup(null);
     };
 
-    renderGroupAnimationList(grp);
-}
-
-function renderGroupAnimationList(grp) {
-    renderAnimationList(grp); // grp has same shape: { animations[], name } — reuse
+    renderAnimationList(grp);
 }
 
 function populateInspector(shape) {
-    document.getElementById('prop-name').value = shape.name;
+    const nameInput = document.getElementById('prop-name');
+    if (nameInput._grpHandler) {
+        nameInput.removeEventListener('change', nameInput._grpHandler);
+        nameInput._grpHandler = null;
+    }
+    nameInput.value = shape.name;
     document.getElementById('selected-shape-type').textContent = `Type: ${shape.type.toUpperCase()}${shape.groupId ? ' · ' + (State.groups.find(g=>g.id===shape.groupId)?.name||'Group') : ''}`;
     document.getElementById('prop-x').value = Math.round(shape.x);
     document.getElementById('prop-y').value = Math.round(shape.y);
@@ -1126,6 +1278,12 @@ function populateInspector(shape) {
     document.getElementById('prop-rotation').value = shape.rotation || 0;
     document.getElementById('prop-opacity').value = shape.opacity || 1;
     document.getElementById('prop-color').value = shape.color;
+    
+    const iconSelect = document.getElementById('prop-icon');
+    if (iconSelect) { 
+        iconSelect.disabled = false;
+        iconSelect.value = shape.icon || '';
+    }
 
     // Update group assignment dropdown
     const groupSelect = document.getElementById('prop-group-assign');
@@ -1229,11 +1387,10 @@ function renderAnimationList(shape) {
         clone.querySelector('.spec-duration').addEventListener('change', e => { anim.duration = parseFloat(e.target.value); });
         clone.querySelector('.spec-step').addEventListener('change', e => { anim.step = parseInt(e.target.value); renderTimelineOverview(); });
 
-        // Play single step (only works for real shapes with .el)
+        // Play single step — tween FROM current DOM state (no reset)
         clone.querySelector('.btn-play-step').addEventListener('click', () => {
             if (!shape.el) return; // group nodes have no el
             gsap.killTweensOf(shape.el);
-            shape.applyTransform();
             shape.buildTween(anim);
         });
 
@@ -1469,24 +1626,40 @@ function updateTrajectories() {
     // Draw group move trajectories — arrows per child showing RELATIVE offset
     State.groups.forEach(grp => {
         const isGroupSelected = State.selectedGroupId === grp.id;
+        
+        let grpOffsetX = 0;
+        let grpOffsetY = 0;
+
         grp.animations.forEach((anim, animIdx) => {
             if (anim.type !== 'move') return;
+            
+            anim.startX = grpOffsetX;
+            anim.startY = grpOffsetY;
+            
+            const targetX = anim.targetX || 0;
+            const targetY = anim.targetY || 0;
+            
+            if (anim.ctrlX === undefined) {
+                anim.ctrlX = (grpOffsetX + targetX) / 2;
+                anim.ctrlY = (grpOffsetY + targetY) / 2 - 50;
+            }
+
             const allChildIds = getGroupAllChildren(grp);
             allChildIds.forEach(childId => {
                 const shape = getShape(childId);
                 if (!shape) return;
                 const cx = (shape.type === 'button' || shape.type === 'item') ? 32 : 24;
                 const cy = cx;
-                const startX = shape.x;
-                const startY = shape.y;
-                // Relative offset → compute absolute target per child
-                const targetX = startX + (anim.targetX || 0);
-                const targetY = startY + (anim.targetY || 0);
+                
+                const absStartX = shape.x + grpOffsetX;
+                const absStartY = shape.y + grpOffsetY;
+                const absTargetX = shape.x + targetX;
+                const absTargetY = shape.y + targetY;
+                const absCtrlX = shape.x + anim.ctrlX;
+                const absCtrlY = shape.y + anim.ctrlY;
 
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                const midX = (startX + targetX) / 2;
-                const midY = (startY + targetY) / 2 - 40;
-                path.setAttribute('d', `M ${startX + cx} ${startY + cy} Q ${midX + cx} ${midY + cy} ${targetX + cx} ${targetY + cy}`);
+                path.setAttribute('d', `M ${absStartX + cx} ${absStartY + cy} Q ${absCtrlX + cx} ${absCtrlY + cy} ${absTargetX + cx} ${absTargetY + cy}`);
                 path.setAttribute('class', 'trajectory-line generated-path');
                 path.style.stroke = isGroupSelected ? '#a78bfa' : '#7c3aed';
                 path.style.strokeWidth = isGroupSelected ? '2.5' : '1.5';
@@ -1496,17 +1669,16 @@ function updateTrajectories() {
 
                 const node = document.createElement('div');
                 node.className = 'target-node';
-                node.style.left = (targetX + cx) + 'px';
-                node.style.top = (targetY + cy) + 'px';
+                node.style.left = (absTargetX + cx) + 'px';
+                node.style.top = (absTargetY + cy) + 'px';
                 node.style.backgroundColor = isGroupSelected ? '#a78bfa' : '#7c3aed';
                 node.style.transform = 'translate(-50%, -50%)';
                 node.addEventListener('mousedown', (e) => {
                     selectGroup(grp.id);
-                    // Dragging the node changes the delta (offset), updating anim.targetX/Y
                     const containerBox = document.getElementById('canvas-container').getBoundingClientRect();
                     const onMove = (ev) => {
-                        anim.targetX = ev.clientX - containerBox.left - cx - startX;
-                        anim.targetY = ev.clientY - containerBox.top - cy - startY;
+                        anim.targetX = ev.clientX - containerBox.left - cx - shape.x;
+                        anim.targetY = ev.clientY - containerBox.top - cy - shape.y;
                         updateTrajectories();
                     };
                     const onUp = () => {
@@ -1519,14 +1691,43 @@ function updateTrajectories() {
                     document.body.style.cursor = 'grabbing';
                     e.stopPropagation();
                 });
+                
+                let ctrlNode = null;
+                if(isGroupSelected) {
+                    ctrlNode = document.createElement('div');
+                    ctrlNode.className = 'target-node ctrl-node';
+                    ctrlNode.style.left = (absCtrlX + cx) + 'px';
+                    ctrlNode.style.top = (absCtrlY + cy) + 'px';
+                    ctrlNode.addEventListener('mousedown', (e) => {
+                         selectGroup(grp.id);
+                         const containerBox = document.getElementById('canvas-container').getBoundingClientRect();
+                         const onMove = (ev) => {
+                             anim.ctrlX = ev.clientX - containerBox.left - cx - shape.x;
+                             anim.ctrlY = ev.clientY - containerBox.top - cy - shape.y;
+                             updateTrajectories();
+                         };
+                         const onUp = () => {
+                             window.removeEventListener('mousemove', onMove);
+                             window.removeEventListener('mouseup', onUp);
+                         };
+                         window.addEventListener('mousemove', onMove);
+                         window.addEventListener('mouseup', onUp);
+                         e.stopPropagation();
+                    });
+                }
+                
                 layer.appendChild(node);
+                if(ctrlNode) layer.appendChild(ctrlNode);
 
                 const label = document.createElement('div');
                 label.className = 'absolute text-white text-[10px] drop-shadow-md pointer-events-none target-node font-bold z-30';
-                label.style.cssText = `left:${targetX+cx+12}px;top:${targetY+cy}px;background:transparent;border:none;box-shadow:none;color:#a78bfa;`;
+                label.style.cssText = `left:${absTargetX+cx+12}px;top:${absTargetY+cy}px;background:transparent;border:none;box-shadow:none;color:#a78bfa;`;
                 label.textContent = `\uD83D\uDCC1${grp.name} (${anim.step||1})`;
                 layer.appendChild(label);
             });
+            
+            grpOffsetX = targetX;
+            grpOffsetY = targetY;
         });
     });
 }
@@ -1598,6 +1799,10 @@ function playAll() {
                         vfxTiming: anim.vfxTiming,
                         targetX: shape.x + (anim.targetX || 0),
                         targetY: shape.y + (anim.targetY || 0),
+                        startX: shape.x + (anim.startX || 0),
+                        startY: shape.y + (anim.startY || 0),
+                        ctrlX: shape.x + (anim.ctrlX || 0),
+                        ctrlY: shape.y + (anim.ctrlY || 0)
                     });
                     buckets[s].push({ shape, anim: childAnim });
                 } else {
@@ -1649,7 +1854,6 @@ function showExport() {
         id: s.id,
         name: s.name,
         type: s.type,
-        groupId: s.groupId || null,
         initialState: {
             x: Math.round(s.x),
             y: Math.round(s.y),
@@ -1657,8 +1861,10 @@ function showExport() {
             scaleY: s.scaleY,
             rotation: s.rotation || 0,
             opacity: s.opacity,
-            color: s.color
+            color: s.color,
+            icon: s.icon
         },
+        groupId: s.groupId || null,
         sequence: s.animations.map(a => {
             let data = { 
                 type: a.type, 
@@ -1824,12 +2030,17 @@ function loadDataFromJSON(data) {
         // Support both old (scale) and new (scaleX/scaleY) formats
         if(elData.initialState.scaleX !== undefined) shape.scaleX = elData.initialState.scaleX;
         if(elData.initialState.scaleY !== undefined) shape.scaleY = elData.initialState.scaleY;
-        if(elData.initialState.scale !== undefined && elData.initialState.scaleX === undefined) shape.scale = elData.initialState.scale;
+        if(elData.initialState.scale !== undefined && elData.initialState.scaleX === undefined) {
+             shape.scaleX = elData.initialState.scale;
+             shape.scaleY = elData.initialState.scale;
+        }
         if(elData.initialState.rotation !== undefined) shape.rotation = elData.initialState.rotation;
         if(elData.initialState.opacity !== undefined) shape.opacity = elData.initialState.opacity;
+        if(elData.initialState.icon !== undefined) shape.icon = elData.initialState.icon;
         if(elData.groupId) shape.groupId = elData.groupId;
         shape.applyTransform();
         shape.applyColor();
+        shape.applyIcon();
 
         shape.animations = (elData.sequence || []).map((seq) => ActionFactory.create({
             id: seq.id || `anim_${Date.now()}_${Math.random().toString(36).substr(2,4)}`,
