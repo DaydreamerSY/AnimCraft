@@ -8,7 +8,9 @@ gsap.registerPlugin(MotionPathPlugin);
 
 const State = {
     shapes: [],           // All shape objects
+    groups: [],           // Group objects { id, name, childIds, animations }
     selectedShapeId: null,// Currently active object ID
+    selectedGroupId: null,// Currently active group ID
     isPlaying: false      // Global playback state
 };
 
@@ -163,14 +165,23 @@ class MoveAction extends BaseAction {
 class ScaleAction extends BaseAction {
     constructor(data = {}) {
         super(data.id, 'scale', data.step, data.duration, data.easeTransition, data.easeDirection);
-        this.targetScale = data.targetScale !== undefined ? data.targetScale : 1.5;
+        // Support both legacy single targetScale and new scaleX/scaleY
+        if (data.targetScaleX !== undefined || data.targetScaleY !== undefined) {
+            this.targetScaleX = data.targetScaleX !== undefined ? data.targetScaleX : 1.5;
+            this.targetScaleY = data.targetScaleY !== undefined ? data.targetScaleY : 1.5;
+        } else {
+            const s = data.targetScale !== undefined ? data.targetScale : 1.5;
+            this.targetScaleX = s;
+            this.targetScaleY = s;
+        }
         this.vfxEnabled = data.vfxEnabled || false;
         this.vfxTiming = data.vfxTiming || 'before';
     }
 
     buildTween(shape) {
         let vars = {
-            scale: parseFloat(this.targetScale),
+            scaleX: parseFloat(this.targetScaleX),
+            scaleY: parseFloat(this.targetScaleY),
             duration: this.duration,
             ease: this.getGSAPEase()
         };
@@ -190,11 +201,16 @@ class ScaleAction extends BaseAction {
     renderParamsUI(container, onChange) {
         container.innerHTML = `
             <div>
-                <label class="text-[10px] text-gray-400 block mb-1">Target Scale</label>
-                <input type="number" id="spec-scale" class="bg-gray-800 border-none text-white text-xs rounded px-2 py-1 w-full focus:ring-1 focus:ring-indigo-500" value="${this.targetScale}" step="0.1" />
+                <label class="text-[10px] text-gray-400 block mb-1">Scale X</label>
+                <input type="number" id="spec-scale-x" class="bg-gray-800 border-none text-white text-xs rounded px-2 py-1 w-full focus:ring-1 focus:ring-indigo-500" value="${this.targetScaleX}" step="0.1" />
+            </div>
+            <div>
+                <label class="text-[10px] text-gray-400 block mb-1">Scale Y</label>
+                <input type="number" id="spec-scale-y" class="bg-gray-800 border-none text-white text-xs rounded px-2 py-1 w-full focus:ring-1 focus:ring-indigo-500" value="${this.targetScaleY}" step="0.1" />
             </div>
         `;
-        container.querySelector('#spec-scale').addEventListener('change', e => { this.targetScale = parseFloat(e.target.value); onChange(); });
+        container.querySelector('#spec-scale-x').addEventListener('change', e => { this.targetScaleX = parseFloat(e.target.value); onChange(); });
+        container.querySelector('#spec-scale-y').addEventListener('change', e => { this.targetScaleY = parseFloat(e.target.value); onChange(); });
     }
 }
 
@@ -278,6 +294,54 @@ class BounceAction extends BaseAction {
     }
 }
 
+class RotateAction extends BaseAction {
+    constructor(data = {}) {
+        super(data.id, 'rotate', data.step, data.duration, data.easeTransition, data.easeDirection);
+        this.targetRotation = data.targetRotation !== undefined ? data.targetRotation : 90;
+        this.relative = data.relative || false;
+        this.vfxEnabled = data.vfxEnabled || false;
+        this.vfxTiming = data.vfxTiming || 'before';
+    }
+
+    buildTween(shape) {
+        let rotVal = parseFloat(this.targetRotation);
+        if (this.relative) {
+            rotVal = '+=' + rotVal;
+        }
+        let vars = {
+            rotation: rotVal,
+            duration: this.duration,
+            ease: this.getGSAPEase()
+        };
+        if (this.vfxEnabled) {
+            const triggerBurst = () => {
+                const c = shape.getCenter();
+                VFX.spawnBurst(c.x, c.y, shape.color);
+            };
+            if (this.vfxTiming === 'before' || !this.vfxTiming) vars.onStart = triggerBurst;
+            else vars.onComplete = triggerBurst;
+        }
+        return gsap.to(shape.el, vars);
+    }
+
+    renderParamsUI(container, onChange) {
+        container.innerHTML = `
+            <div>
+                <label class="text-[10px] text-gray-400 block mb-1">Degrees</label>
+                <input type="number" id="spec-rotate-deg" class="bg-gray-800 border-none text-white text-xs rounded px-2 py-1 w-full focus:ring-1 focus:ring-indigo-500" value="${this.targetRotation}" step="1" />
+            </div>
+            <div class="flex items-center gap-2 col-span-2">
+                <label class="flex items-center gap-1 cursor-pointer">
+                    <input type="checkbox" id="spec-rotate-relative" class="form-checkbox h-3 w-3 text-indigo-500 rounded border-gray-600 bg-gray-700" ${this.relative ? 'checked' : ''} />
+                    <span class="text-[10px] text-gray-300">Relative (additive)</span>
+                </label>
+            </div>
+        `;
+        container.querySelector('#spec-rotate-deg').addEventListener('change', e => { this.targetRotation = parseFloat(e.target.value); onChange(); });
+        container.querySelector('#spec-rotate-relative').addEventListener('change', e => { this.relative = e.target.checked; onChange(); });
+    }
+}
+
 class ActionFactory {
     static create(data) {
         if (!data || !data.type) return null;
@@ -286,6 +350,7 @@ class ActionFactory {
             case 'scale': return new ScaleAction(data);
             case 'fade': return new FadeAction(data);
             case 'bounce': return new BounceAction(data);
+            case 'rotate': return new RotateAction(data);
             default: return new BaseAction(data.id, data.type, data.step, data.duration, data.easeTransition, data.easeDirection);
         }
     }
@@ -301,21 +366,25 @@ class CanvasShape {
         // Transform properties
         this.x = x;
         this.y = y;
-        this.scale = 1.0;
+        this.scaleX = 1.0;
+        this.scaleY = 1.0;
+        this.rotation = 0;
         this.color = options.color || this.getDefaultColor(type);
         this.opacity = 1.0;
+        this.groupId = null; // reference to parent group
         
         // DOM Element
         this.el = null;
         
         // Animation sequences (DOTween style)
-        this.animations = [
-            // Example structure:
-            // { id: 'a1', type: 'move', targetX: 100, targetY: 100, duration: 1.0, ease: 'power1.inOut' }
-        ];
+        this.animations = [];
 
         this.initDOM();
     }
+
+    // Backward compat: get/set scale applies to both axes
+    get scale() { return this.scaleX; }
+    set scale(v) { this.scaleX = v; this.scaleY = v; }
 
     getDefaultColor(type) {
         if (type === 'button') return '#3b82f6'; // blue-500
@@ -349,7 +418,9 @@ class CanvasShape {
         gsap.set(this.el, {
             x: this.x,
             y: this.y,
-            scale: this.scale,
+            scaleX: this.scaleX,
+            scaleY: this.scaleY,
+            rotation: this.rotation,
             opacity: this.opacity
         });
         updateTrajectories(); // redraw paths
@@ -503,6 +574,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-copy-json').addEventListener('click', copyJson);
     document.getElementById('btn-download-json').addEventListener('click', downloadJson);
 
+    // New Group button
+    document.getElementById('btn-add-group').addEventListener('click', addNewGroup);
+
     // Help Modal
     const helpModal = document.getElementById('help-modal');
     const openHelp = () => {
@@ -559,6 +633,10 @@ function generateId() {
     return 'shape_' + Math.random().toString(36).substr(2, 9);
 }
 
+function generateGroupId() {
+    return 'grp_' + Math.random().toString(36).substr(2, 9);
+}
+
 function addNewShape(type) {
     const id = generateId();
     // Default position center canvas
@@ -572,12 +650,76 @@ function addNewShape(type) {
     selectShape(id);
 }
 
+function addNewGroup() {
+    const id = generateGroupId();
+    const grp = {
+        id,
+        name: 'Group ' + (State.groups.length + 1),
+        childIds: [],
+        parentGroupId: null,
+        animations: []
+    };
+    State.groups.push(grp);
+    renderOutliner();
+    selectGroup(id);
+}
+
+// Returns true if candidateAncestorId is an ancestor of targetGroupId (cycle detection)
+function isGroupAncestor(candidateAncestorId, targetGroupId) {
+    let cur = getGroup(targetGroupId);
+    while (cur) {
+        if (cur.id === candidateAncestorId) return true;
+        cur = getGroup(cur.parentGroupId);
+    }
+    return false;
+}
+
+// Recursively collect all leaf shape IDs for a group (including nested groups)
+function getGroupAllChildren(grp) {
+    const result = [];
+    grp.childIds.forEach(childId => {
+        if (getShape(childId)) result.push(childId);
+    });
+    State.groups.forEach(child => {
+        if (child.parentGroupId === grp.id) {
+            result.push(...getGroupAllChildren(child));
+        }
+    });
+    return result;
+}
+
 function getShape(id) {
     return State.shapes.find(s => s.id === id);
 }
 
+function getGroup(id) {
+    return State.groups.find(g => g.id === id);
+}
+
+function selectGroup(id) {
+    State.selectedGroupId = id;
+    State.selectedShapeId = null;
+
+    document.querySelectorAll('.shape-element').forEach(el => el.classList.remove('selected'));
+
+    const inspector = document.getElementById('inspector-panel');
+    const placeholder = document.getElementById('inspector-placeholder');
+
+    if (id) {
+        inspector.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        populateGroupInspector(getGroup(id));
+    } else {
+        inspector.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+    }
+    renderOutliner();
+    renderTimelineOverview();
+}
+
 function selectShape(id) {
     State.selectedShapeId = id;
+    State.selectedGroupId = null;
 
     // Update styling
     document.querySelectorAll('.shape-element').forEach(el => {
@@ -610,65 +752,105 @@ function renderOutliner() {
     const list = document.getElementById('outliner-list');
     const emptyUI = document.getElementById('empty-outliner');
     
-    // Keep empty UI notice
+    // Clear non-empty items
     Array.from(list.children).forEach(c => {
         if(c.id !== 'empty-outliner') c.remove();
     });
 
-    if(State.shapes.length === 0) {
+    const totalItems = State.shapes.length + State.groups.length;
+    if(totalItems === 0) {
         emptyUI.style.display = 'block';
         return;
     }
     emptyUI.style.display = 'none';
 
-    State.shapes.forEach(shape => {
+    // Helper: build a rename-able row
+    const makeRow = (label, iconClass, isSelected, colorCls, onClick, onRename) => {
         const item = document.createElement('div');
-        const isSelected = State.selectedShapeId === shape.id;
-        item.className = `group flex items-center justify-between p-2 rounded cursor-pointer transition-colors ${isSelected ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'} border border-transparent ${isSelected ? 'border-indigo-500' : ''}`;
-        
-        // Icon based on type
-        let iconClass = 'ph-rectangle';
-        if(shape.type === 'item') iconClass = 'ph-circle';
-        if(shape.type === 'star') iconClass = 'ph-star';
-
+        item.className = `flex items-center justify-between p-2 rounded cursor-pointer transition-colors border ${
+            isSelected ? 'bg-indigo-600 text-white border-indigo-500' : `${colorCls} text-gray-300 hover:bg-gray-700 border-transparent`
+        }`;
         item.innerHTML = `
             <div class="flex items-center gap-2 flex-1 min-w-0">
                 <i class="ph ${iconClass} ${isSelected ? 'text-indigo-200' : 'text-gray-500'}"></i>
-                <span class="text-xs font-medium truncate shape-name-display w-full">${shape.name}</span>
-                <input type="text" class="text-xs text-black hidden w-full px-1 rounded shape-name-input outline-none ring-1 ring-indigo-500" value="${shape.name}" />
+                <span class="text-xs font-medium truncate row-name-display">${label}</span>
+                <input type="text" class="text-xs text-black hidden w-full px-1 rounded row-name-input outline-none ring-1 ring-indigo-500" value="${label}" />
             </div>
         `;
-
-        // Selection
-        item.addEventListener('click', (e) => {
-            if(e.target.tagName !== 'INPUT') selectShape(shape.id);
-        });
-
-        // Double click to rename
-        const display = item.querySelector('.shape-name-display');
-        const input = item.querySelector('.shape-name-input');
-        
+        item.addEventListener('click', (e) => { if(e.target.tagName !== 'INPUT') onClick(); });
+        const display = item.querySelector('.row-name-display');
+        const input = item.querySelector('.row-name-input');
         item.addEventListener('dblclick', () => {
             display.classList.add('hidden');
             input.classList.remove('hidden');
-            input.focus();
-            input.select();
+            input.focus(); input.select();
         });
-
-        // Save rename
-        const saveName = () => {
-            if(input.value.trim()){
-                shape.name = input.value.trim();
-            }
-            renderOutliner(); // re-render to update
-            if(State.selectedShapeId === shape.id) {
-               document.getElementById('selected-shape-id').textContent = `${shape.name} (${shape.type})`;
-            }
+        const saveRename = () => {
+            if(input.value.trim()) onRename(input.value.trim());
+            renderOutliner();
         };
+        input.addEventListener('blur', saveRename);
+        input.addEventListener('keydown', e => { if(e.key === 'Enter') input.blur(); });
+        return item;
+    };
 
-        input.addEventListener('blur', saveName);
-        input.addEventListener('keydown', e => { if(e.key === 'Enter') { input.blur(); } });
+    // Render groups (top-level groups first, then nested)
+    const renderGroup = (grp, depth) => {
+        const isSelected = State.selectedGroupId === grp.id;
+        const grpRow = makeRow(
+            grp.name, 'ph-folder', isSelected, 'bg-gray-800',
+            () => selectGroup(grp.id),
+            (name) => { grp.name = name; }
+        );
+        if (depth > 0) {
+            grpRow.style.marginLeft = (depth * 14) + 'px';
+            grpRow.style.paddingLeft = '8px';
+            grpRow.style.borderLeft = '2px solid #7c3aed';
+        }
+        const badge = document.createElement('span');
+        badge.className = `text-[9px] px-1.5 py-0.5 rounded-full ml-auto mr-1 ${isSelected ? 'bg-indigo-400/40 text-indigo-100' : 'bg-gray-700 text-gray-400'}`;
+        const nestedCount = State.groups.filter(g => g.parentGroupId === grp.id).length;
+        badge.textContent = grp.animations.length + ' anim' + (nestedCount ? ` / ${nestedCount} sub` : '');
+        grpRow.firstElementChild.appendChild(badge);
+        list.appendChild(grpRow);
 
+        // Nested child groups
+        State.groups.filter(g => g.parentGroupId === grp.id).forEach(childGrp => renderGroup(childGrp, depth + 1));
+
+        // Direct child shapes
+        grp.childIds.forEach(childId => {
+            const shape = getShape(childId);
+            if(!shape) return;
+            const isChildSelected = State.selectedShapeId === shape.id;
+            let childIcon = 'ph-rectangle';
+            if(shape.type === 'item') childIcon = 'ph-circle';
+            const childRow = makeRow(
+                shape.name, childIcon, isChildSelected, 'bg-gray-800/60',
+                () => selectShape(shape.id),
+                (name) => { shape.name = name; }
+            );
+            childRow.style.marginLeft = ((depth + 1) * 14) + 'px';
+            childRow.style.paddingLeft = '8px';
+            childRow.style.borderLeft = '2px solid #4f46e5';
+            list.appendChild(childRow);
+        });
+    };
+
+    // Render root groups (no parent)
+    State.groups.filter(g => !g.parentGroupId).forEach(grp => renderGroup(grp, 0));
+
+    // Render un-grouped shapes
+    State.shapes.forEach(shape => {
+        if(shape.groupId) return; // already shown under group
+        const isSelected = State.selectedShapeId === shape.id;
+        let iconClass = 'ph-rectangle';
+        if(shape.type === 'item') iconClass = 'ph-circle';
+        if(shape.type === 'star') iconClass = 'ph-star';
+        const item = makeRow(
+            shape.name, iconClass, isSelected, 'bg-gray-800',
+            () => selectShape(shape.id),
+            (name) => { shape.name = name; }
+        );
         list.appendChild(item);
     });
 }
@@ -679,11 +861,22 @@ function renderTimelineOverview() {
     
     const grouped = {};
     let hasAnims = false;
+
+    // Individual shapes
     State.shapes.forEach(shape => {
         shape.animations.forEach(anim => {
             const s = Number(anim.step) || 1;
             if(!grouped[s]) grouped[s] = [];
-            grouped[s].push({ shape, anim });
+            grouped[s].push({ label: shape.name, anim, id: shape.id, isGroup: false });
+            hasAnims = true;
+        });
+    });
+    // Groups
+    State.groups.forEach(grp => {
+        grp.animations.forEach(anim => {
+            const s = Number(anim.step) || 1;
+            if(!grouped[s]) grouped[s] = [];
+            grouped[s].push({ label: `📁 ${grp.name}`, anim, id: grp.id, isGroup: true });
             hasAnims = true;
         });
     });
@@ -705,26 +898,28 @@ function renderTimelineOverview() {
         header.textContent = `Sequence Step ${step}`;
         stepCol.appendChild(header);
 
-        const list = document.createElement('div');
-        list.className = 'p-2 space-y-2 overflow-y-auto flex-1';
+        const listEl = document.createElement('div');
+        listEl.className = 'p-2 space-y-2 overflow-y-auto flex-1';
         
-        grouped[step].forEach(({shape, anim}) => {
+        grouped[step].forEach(({label, anim, id, isGroup}) => {
             const card = document.createElement('div');
-            card.className = `bg-gray-800 border ${State.selectedShapeId === shape.id ? 'border-indigo-400' : 'border-gray-600 hover:border-indigo-500'} rounded p-2 text-[10px] cursor-pointer transition-colors`;
+            const isActive = isGroup ? State.selectedGroupId === id : State.selectedShapeId === id;
+            card.className = `bg-gray-800 border ${isActive ? 'border-indigo-400' : 'border-gray-600 hover:border-indigo-500'} rounded p-2 text-[10px] cursor-pointer transition-colors`;
             card.innerHTML = `
-                <div class="font-bold text-gray-200 mb-1 truncate">${shape.name}</div>
+                <div class="font-bold text-gray-200 mb-1 truncate">${label}</div>
                 <div class="text-gray-400 flex justify-between items-center">
                     <span class="uppercase font-semibold tracking-wide text-[9px] text-gray-300 bg-gray-700 px-1 py-0.5 rounded">${anim.type}</span>
                     <span>${anim.duration}s</span>
                 </div>
             `;
             card.addEventListener('click', () => {
-                selectShape(shape.id);
+                if(isGroup) selectGroup(id);
+                else selectShape(id);
             });
-            list.appendChild(card);
+            listEl.appendChild(card);
         });
         
-        stepCol.appendChild(list);
+        stepCol.appendChild(listEl);
         container.appendChild(stepCol);
     });
 }
@@ -751,9 +946,17 @@ function setupInspectorEvents() {
         const s = getShape(id());
         if (s) { s.y = parseFloat(e.target.value); s.applyTransform(); }
     });
-    document.getElementById('prop-scale').addEventListener('change', (e) => {
+    document.getElementById('prop-scale-x').addEventListener('change', (e) => {
         const s = getShape(id());
-        if (s) { s.scale = parseFloat(e.target.value); s.applyTransform(); }
+        if (s) { s.scaleX = parseFloat(e.target.value); s.applyTransform(); }
+    });
+    document.getElementById('prop-scale-y').addEventListener('change', (e) => {
+        const s = getShape(id());
+        if (s) { s.scaleY = parseFloat(e.target.value); s.applyTransform(); }
+    });
+    document.getElementById('prop-rotation').addEventListener('change', (e) => {
+        const s = getShape(id());
+        if (s) { s.rotation = parseFloat(e.target.value); s.applyTransform(); }
     });
     document.getElementById('prop-opacity').addEventListener('change', (e) => {
         const s = getShape(id());
@@ -762,6 +965,23 @@ function setupInspectorEvents() {
     document.getElementById('prop-color').addEventListener('input', (e) => {
         const s = getShape(id());
         if (s) { s.color = e.target.value; s.applyColor(); }
+    });
+
+    // Group assignment
+    document.getElementById('prop-group-assign').addEventListener('change', (e) => {
+        const s = getShape(id());
+        if (!s) return;
+        const gid = e.target.value || null;
+        // remove from old group
+        State.groups.forEach(g => { g.childIds = g.childIds.filter(c => c !== s.id); });
+        s.groupId = gid;
+        if (gid) {
+            const grp = getGroup(gid);
+            if (grp && !grp.childIds.includes(s.id)) grp.childIds.push(s.id);
+        }
+        populateInspector(s);
+        renderOutliner();
+        renderTimelineOverview();
     });
 
     document.getElementById('btn-duplicate-shape').addEventListener('click', () => {
@@ -774,7 +994,9 @@ function setupInspectorEvents() {
             name: `${original.name} (Copy)`,
             color: original.color
         });
-        clone.scale = original.scale;
+        clone.scaleX = original.scaleX;
+        clone.scaleY = original.scaleY;
+        clone.rotation = original.rotation || 0;
         clone.opacity = original.opacity !== undefined ? original.opacity : 1;
         clone.applyTransform();
         clone.applyColor();
@@ -803,25 +1025,31 @@ function setupInspectorEvents() {
     });
 
     document.getElementById('btn-add-anim').addEventListener('click', () => {
+        // Works for both a selected shape and a selected group
         const s = getShape(id());
-        if(!s) return;
+        const grp = !s ? getGroup(State.selectedGroupId) : null;
+        const target = s || grp;
+        if(!target) return;
 
         let maxStep = 0;
-        State.shapes.forEach(sh => {
-            sh.animations.forEach(a => { if (a.step > maxStep) maxStep = a.step; });
-        });
+        State.shapes.forEach(sh => { sh.animations.forEach(a => { if (a.step > maxStep) maxStep = a.step; }); });
+        State.groups.forEach(g => { g.animations.forEach(a => { if (a.step > maxStep) maxStep = a.step; }); });
         const newStep = maxStep > 0 ? maxStep + 1 : 1;
 
-        s.animations.push(new MoveAction({
+        const startX = s ? s.x + 100 : 100; // for groups: relative offset delta
+        const startY = s ? s.y : 0;
+
+        target.animations.push(new MoveAction({
             step: newStep,
-            targetX: s.x + 100,
-            targetY: s.y,
+            targetX: startX,
+            targetY: startY,
             duration: 1.0,
             easeTransition: 'Quad',
             easeDirection: 'InOut'
         }));
         
-        renderAnimationList(s);
+        if (s) renderAnimationList(s);
+        else renderGroupAnimationList(grp);
         updateTrajectories();
     });
 
@@ -830,14 +1058,87 @@ function setupInspectorEvents() {
     });
 }
 
+function populateGroupInspector(grp) {
+    const allChildCount = getGroupAllChildren(grp).length;
+    const nestedGroupCount = State.groups.filter(g => g.parentGroupId === grp.id).length;
+    document.getElementById('prop-name').value = grp.name;
+    document.getElementById('selected-shape-type').textContent = `GROUP · ${grp.childIds.length} shapes, ${nestedGroupCount} sub-groups`;
+    document.getElementById('prop-x').value = '';
+    document.getElementById('prop-y').value = '';
+    document.getElementById('prop-scale-x').value = '';
+    document.getElementById('prop-scale-y').value = '';
+    document.getElementById('prop-rotation').value = '';
+    document.getElementById('prop-opacity').value = '';
+    document.getElementById('prop-color').value = '#6366f1';
+
+    // Parent group dropdown (excluding self, ancestors to prevent cycles)
+    const groupSelect = document.getElementById('prop-group-assign');
+    if (groupSelect) {
+        groupSelect.innerHTML = '<option value="">No Parent Group</option>' +
+            State.groups
+                .filter(g => g.id !== grp.id && !isGroupAncestor(g.id, grp.id))
+                .map(g => `<option value="${g.id}" ${grp.parentGroupId === g.id ? 'selected' : ''}>${g.name}</option>`)
+                .join('');
+
+        groupSelect.removeEventListener('change', groupSelect._grpParentHandler);
+        groupSelect._grpParentHandler = (e) => {
+            const newParentId = e.target.value || null;
+            // Remove from old parent's childGroup tracking (we use parentGroupId, not childIds for groups)
+            grp.parentGroupId = newParentId;
+            populateGroupInspector(grp);
+            renderOutliner();
+        };
+        groupSelect.addEventListener('change', groupSelect._grpParentHandler);
+    }
+
+    // Name change
+    const nameInput = document.getElementById('prop-name');
+    nameInput.removeEventListener('change', nameInput._grpHandler);
+    nameInput._grpHandler = (e) => {
+        if (e.target.value.trim() !== '') { grp.name = e.target.value.trim(); renderOutliner(); }
+    };
+    nameInput.addEventListener('change', nameInput._grpHandler);
+
+    // Delete group button
+    const delBtn = document.getElementById('btn-delete-shape');
+    delBtn.innerHTML = '<i class="ph ph-trash"></i> Delete Group';
+    delBtn.onclick = () => {
+        grp.childIds.forEach(cid => { const sh = getShape(cid); if(sh) sh.groupId = null; });
+        State.groups.forEach(g => { if(g.parentGroupId === grp.id) g.parentGroupId = null; });
+        State.groups = State.groups.filter(g => g.id !== grp.id);
+        selectGroup(null);
+    };
+
+    renderGroupAnimationList(grp);
+}
+
+function renderGroupAnimationList(grp) {
+    renderAnimationList(grp); // grp has same shape: { animations[], name } — reuse
+}
+
 function populateInspector(shape) {
     document.getElementById('prop-name').value = shape.name;
-    document.getElementById('selected-shape-type').textContent = `Type: ${shape.type.toUpperCase()}`;
+    document.getElementById('selected-shape-type').textContent = `Type: ${shape.type.toUpperCase()}${shape.groupId ? ' · ' + (State.groups.find(g=>g.id===shape.groupId)?.name||'Group') : ''}`;
     document.getElementById('prop-x').value = Math.round(shape.x);
     document.getElementById('prop-y').value = Math.round(shape.y);
-    document.getElementById('prop-scale').value = shape.scale;
+    document.getElementById('prop-scale-x').value = shape.scaleX;
+    document.getElementById('prop-scale-y').value = shape.scaleY;
+    document.getElementById('prop-rotation').value = shape.rotation || 0;
     document.getElementById('prop-opacity').value = shape.opacity || 1;
     document.getElementById('prop-color').value = shape.color;
+
+    // Update group assignment dropdown
+    const groupSelect = document.getElementById('prop-group-assign');
+    if (groupSelect) {
+        // Clear any leftover handler from populateGroupInspector
+        if (groupSelect._grpParentHandler) {
+            groupSelect.removeEventListener('change', groupSelect._grpParentHandler);
+            groupSelect._grpParentHandler = null;
+        }
+        
+        groupSelect.innerHTML = '<option value="">No Group</option>' +
+            State.groups.map(g => `<option value="${g.id}" ${shape.groupId === g.id ? 'selected' : ''}>${g.name}</option>`).join('');
+    }
 
     renderAnimationList(shape);
 }
@@ -917,8 +1218,8 @@ function renderAnimationList(shape) {
                 duration: anim.duration,
                 easeTransition: anim.easeTransition,
                 easeDirection: anim.easeDirection,
-                targetX: shape.x + 50, targetY: shape.y,
-                targetScale: 1.5, targetOpacity: 0
+                targetX: (shape.x || 0) + 100, targetY: (shape.y || 0),
+                targetScaleX: 1.5, targetScaleY: 1.5, targetOpacity: 0, targetRotation: 90
             });
             shape.animations[index] = newAnim;
             renderAnimationList(shape);
@@ -928,8 +1229,9 @@ function renderAnimationList(shape) {
         clone.querySelector('.spec-duration').addEventListener('change', e => { anim.duration = parseFloat(e.target.value); });
         clone.querySelector('.spec-step').addEventListener('change', e => { anim.step = parseInt(e.target.value); renderTimelineOverview(); });
 
-        // Play single step
+        // Play single step (only works for real shapes with .el)
         clone.querySelector('.btn-play-step').addEventListener('click', () => {
+            if (!shape.el) return; // group nodes have no el
             gsap.killTweensOf(shape.el);
             shape.applyTransform();
             shape.buildTween(anim);
@@ -1163,6 +1465,70 @@ function updateTrajectories() {
             }
         });
     });
+
+    // Draw group move trajectories — arrows per child showing RELATIVE offset
+    State.groups.forEach(grp => {
+        const isGroupSelected = State.selectedGroupId === grp.id;
+        grp.animations.forEach((anim, animIdx) => {
+            if (anim.type !== 'move') return;
+            const allChildIds = getGroupAllChildren(grp);
+            allChildIds.forEach(childId => {
+                const shape = getShape(childId);
+                if (!shape) return;
+                const cx = (shape.type === 'button' || shape.type === 'item') ? 32 : 24;
+                const cy = cx;
+                const startX = shape.x;
+                const startY = shape.y;
+                // Relative offset → compute absolute target per child
+                const targetX = startX + (anim.targetX || 0);
+                const targetY = startY + (anim.targetY || 0);
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const midX = (startX + targetX) / 2;
+                const midY = (startY + targetY) / 2 - 40;
+                path.setAttribute('d', `M ${startX + cx} ${startY + cy} Q ${midX + cx} ${midY + cy} ${targetX + cx} ${targetY + cy}`);
+                path.setAttribute('class', 'trajectory-line generated-path');
+                path.style.stroke = isGroupSelected ? '#a78bfa' : '#7c3aed';
+                path.style.strokeWidth = isGroupSelected ? '2.5' : '1.5';
+                path.style.strokeDasharray = '6,4';
+                path.style.opacity = '0.7';
+                svg.appendChild(path);
+
+                const node = document.createElement('div');
+                node.className = 'target-node';
+                node.style.left = (targetX + cx) + 'px';
+                node.style.top = (targetY + cy) + 'px';
+                node.style.backgroundColor = isGroupSelected ? '#a78bfa' : '#7c3aed';
+                node.style.transform = 'translate(-50%, -50%)';
+                node.addEventListener('mousedown', (e) => {
+                    selectGroup(grp.id);
+                    // Dragging the node changes the delta (offset), updating anim.targetX/Y
+                    const containerBox = document.getElementById('canvas-container').getBoundingClientRect();
+                    const onMove = (ev) => {
+                        anim.targetX = ev.clientX - containerBox.left - cx - startX;
+                        anim.targetY = ev.clientY - containerBox.top - cy - startY;
+                        updateTrajectories();
+                    };
+                    const onUp = () => {
+                        window.removeEventListener('mousemove', onMove);
+                        window.removeEventListener('mouseup', onUp);
+                        document.body.style.cursor = 'default';
+                    };
+                    window.addEventListener('mousemove', onMove);
+                    window.addEventListener('mouseup', onUp);
+                    document.body.style.cursor = 'grabbing';
+                    e.stopPropagation();
+                });
+                layer.appendChild(node);
+
+                const label = document.createElement('div');
+                label.className = 'absolute text-white text-[10px] drop-shadow-md pointer-events-none target-node font-bold z-30';
+                label.style.cssText = `left:${targetX+cx+12}px;top:${targetY+cy}px;background:transparent;border:none;box-shadow:none;color:#a78bfa;`;
+                label.textContent = `\uD83D\uDCC1${grp.name} (${anim.step||1})`;
+                layer.appendChild(label);
+            });
+        });
+    });
 }
 
 // ----------------------------------------------------
@@ -1192,35 +1558,63 @@ function updatePlayToggleUI(playing) {
 function playAll() {
     stopAll();
     masterTimeline = gsap.timeline({
-        onComplete: () => {
-            stopAll();
-        }
+        onComplete: () => { stopAll(); }
     });
     State.isPlaying = true;
     updatePlayToggleUI(true);
     
     document.getElementById('canvas-container').classList.add('is-playing');
 
-    // Group all animations by step
-    const grouped = {};
+    // Bucket all animations by step
+    const buckets = {};
+
+    // Individual shape animations
     State.shapes.forEach(shape => {
         shape.animations.forEach(anim => {
             const s = anim.step || 1;
-            if(!grouped[s]) grouped[s] = [];
-            grouped[s].push({ shape, anim });
+            if(!buckets[s]) buckets[s] = [];
+            buckets[s].push({ shape, anim });
         });
     });
 
-    const steps = Object.keys(grouped).map(Number).sort((a,b)=>a-b);
+    // Group animations → expand to ALL children (recursively), move as relative offset
+    State.groups.forEach(grp => {
+        grp.animations.forEach(anim => {
+            const s = anim.step || 1;
+            if(!buckets[s]) buckets[s] = [];
+            const allChildIds = getGroupAllChildren(grp);
+            allChildIds.forEach(childId => {
+                const shape = getShape(childId);
+                if (!shape) return;
+                // For Move: treat targetX/Y as RELATIVE delta from each child's current position
+                // For all other types: use anim directly (easing is on anim object)
+                if (anim.type === 'move') {
+                    const childAnim = new MoveAction({
+                        step: anim.step,
+                        duration: anim.duration,
+                        easeTransition: anim.easeTransition,
+                        easeDirection: anim.easeDirection,
+                        vfxEnabled: anim.vfxEnabled,
+                        vfxTiming: anim.vfxTiming,
+                        targetX: shape.x + (anim.targetX || 0),
+                        targetY: shape.y + (anim.targetY || 0),
+                    });
+                    buckets[s].push({ shape, anim: childAnim });
+                } else {
+                    buckets[s].push({ shape, anim });
+                }
+            });
+        });
+    });
+
+    const steps = Object.keys(buckets).map(Number).sort((a,b)=>a-b);
     
-    // Add animations to timeline sequentially per step
     steps.forEach((step) => {
         const stepLabel = `step_${step}`;
         masterTimeline.addLabel(stepLabel);
-        
-        grouped[step].forEach(({shape, anim}) => {
+        buckets[step].forEach(({shape, anim}) => {
             const tween = shape.buildTween(anim);
-            if(tween) masterTimeline.add(tween, stepLabel); // Parallel inside the same step
+            if(tween) masterTimeline.add(tween, stepLabel);
         });
     });
 }
@@ -1232,7 +1626,7 @@ function stopAll() {
     
     document.getElementById('canvas-container').classList.remove('is-playing');
     
-    // Hard reset config to INITIAL state
+    // Hard reset all shapes to INITIAL state
     State.shapes.forEach(shape => {
         gsap.killTweensOf(shape.el);
         shape.applyTransform();
@@ -1255,10 +1649,13 @@ function showExport() {
         id: s.id,
         name: s.name,
         type: s.type,
+        groupId: s.groupId || null,
         initialState: {
             x: Math.round(s.x),
             y: Math.round(s.y),
-            scale: s.scale,
+            scaleX: s.scaleX,
+            scaleY: s.scaleY,
+            rotation: s.rotation || 0,
             opacity: s.opacity,
             color: s.color
         },
@@ -1279,8 +1676,24 @@ function showExport() {
                 if(a.ctrlX !== undefined) data.ctrlX = Math.round(a.ctrlX); 
                 if(a.ctrlY !== undefined) data.ctrlY = Math.round(a.ctrlY);
             }
-            if(a.type === 'scale') { data.targetScale = a.targetScale; }
+            if(a.type === 'scale') { data.targetScaleX = a.targetScaleX; data.targetScaleY = a.targetScaleY; }
             if(a.type === 'fade') { data.targetOpacity = a.targetOpacity; }
+            if(a.type === 'rotate') { data.targetRotation = a.targetRotation; data.relative = a.relative; }
+            return data;
+        })
+    }));
+
+    const groupsData = State.groups.map(g => ({
+        id: g.id,
+        name: g.name,
+        childIds: g.childIds,
+        parentGroupId: g.parentGroupId || null,
+        sequence: g.animations.map(a => {
+            let data = { type: a.type, step: a.step||1, duration: a.duration, easeTransition: a.easeTransition||'Quad', easeDirection: a.easeDirection||'InOut' };
+            if(a.type === 'move') { data.targetX = Math.round(a.targetX); data.targetY = Math.round(a.targetY); }
+            if(a.type === 'scale') { data.targetScaleX = a.targetScaleX; data.targetScaleY = a.targetScaleY; }
+            if(a.type === 'fade') { data.targetOpacity = a.targetOpacity; }
+            if(a.type === 'rotate') { data.targetRotation = a.targetRotation; data.relative = a.relative; }
             return data;
         })
     }));
@@ -1289,7 +1702,8 @@ function showExport() {
         tool: "AnimCraft - Animation Reference",
         timestamp: new Date().toISOString(),
         totalElements: devData.length,
-        elements: devData
+        elements: devData,
+        groups: groupsData
     };
 
     textarea.value = JSON.stringify(finalConfig, null, 2);
@@ -1398,6 +1812,7 @@ function loadDataFromJSON(data) {
     stopAll();
     State.shapes.forEach(s => s.el.remove());
     State.shapes = [];
+    State.groups = [];
     selectShape(null);
 
     data.elements.forEach((elData, idx) => {
@@ -1406,18 +1821,40 @@ function loadDataFromJSON(data) {
             name: elData.name,
             color: elData.initialState.color
         });
-        if(elData.initialState.scale !== undefined) shape.scale = elData.initialState.scale;
+        // Support both old (scale) and new (scaleX/scaleY) formats
+        if(elData.initialState.scaleX !== undefined) shape.scaleX = elData.initialState.scaleX;
+        if(elData.initialState.scaleY !== undefined) shape.scaleY = elData.initialState.scaleY;
+        if(elData.initialState.scale !== undefined && elData.initialState.scaleX === undefined) shape.scale = elData.initialState.scale;
+        if(elData.initialState.rotation !== undefined) shape.rotation = elData.initialState.rotation;
         if(elData.initialState.opacity !== undefined) shape.opacity = elData.initialState.opacity;
+        if(elData.groupId) shape.groupId = elData.groupId;
         shape.applyTransform();
         shape.applyColor();
 
-        shape.animations = elData.sequence.map((seq) => ActionFactory.create({
+        shape.animations = (elData.sequence || []).map((seq) => ActionFactory.create({
             id: seq.id || `anim_${Date.now()}_${Math.random().toString(36).substr(2,4)}`,
             ...seq
         })).filter(Boolean);
         
         State.shapes.push(shape);
     });
+
+    // Restore groups
+    if(data.groups) {
+        data.groups.forEach(gData => {
+            const grp = {
+                id: gData.id,
+                name: gData.name,
+                childIds: gData.childIds || [],
+                parentGroupId: gData.parentGroupId || null,
+                animations: (gData.sequence || []).map(seq => ActionFactory.create({
+                    id: seq.id || `anim_${Date.now()}_${Math.random().toString(36).substr(2,4)}`,
+                    ...seq
+                })).filter(Boolean)
+            };
+            State.groups.push(grp);
+        });
+    }
 
     renderOutliner();
     renderTimelineOverview();

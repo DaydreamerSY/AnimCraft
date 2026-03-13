@@ -70,6 +70,10 @@
             <i class="ph ph-circle text-xl text-gray-300 group-hover:text-white mb-1"></i>
             <span class="text-[10px] text-gray-400 group-hover:text-white">Item</span>
           </button>
+          <button id="btn-add-group" class="tool-btn flex-1 flex flex-col items-center justify-center p-2 rounded-lg bg-gray-700 hover:bg-violet-600 transition-colors border border-gray-600 hover:border-violet-400 group" title="New Group">
+            <i class="ph ph-folder-plus text-xl text-gray-300 group-hover:text-white mb-1"></i>
+            <span class="text-[10px] text-gray-400 group-hover:text-white">Group</span>
+          </button>
         </div>
       </div>
 
@@ -139,18 +143,28 @@
             <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider group-hover:text-white transition-colors">Properties</h3>
             <i class="ph ph-caret-down text-gray-400 transition-transform"></i>
         </div>
-        <div id="props-content" class="space-y-3">
-          <div class="flex items-center justify-between">
-            <label class="text-xs text-gray-400">Position X</label>
-            <input type="number" id="prop-x" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-2 py-1 w-20 text-right focus:border-indigo-500 focus:outline-none" />
+        <div id="props-content" class="space-y-2">
+          <div class="flex items-center justify-between gap-1">
+            <label class="text-xs text-gray-400 shrink-0">Pos</label>
+            <div class="flex items-center gap-1 ml-auto">
+              <span class="text-[10px] text-gray-500">X</span>
+              <input type="number" id="prop-x" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-1.5 py-1 w-16 text-right focus:border-indigo-500 focus:outline-none" />
+              <span class="text-[10px] text-gray-500">Y</span>
+              <input type="number" id="prop-y" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-1.5 py-1 w-16 text-right focus:border-indigo-500 focus:outline-none" />
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-1">
+            <label class="text-xs text-gray-400 shrink-0">Scale</label>
+            <div class="flex items-center gap-1 ml-auto">
+              <span class="text-[10px] text-gray-500">X</span>
+              <input type="number" id="prop-scale-x" step="0.1" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-1.5 py-1 w-16 text-right focus:border-indigo-500 focus:outline-none" />
+              <span class="text-[10px] text-gray-500">Y</span>
+              <input type="number" id="prop-scale-y" step="0.1" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-1.5 py-1 w-16 text-right focus:border-indigo-500 focus:outline-none" />
+            </div>
           </div>
           <div class="flex items-center justify-between">
-            <label class="text-xs text-gray-400">Position Y</label>
-            <input type="number" id="prop-y" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-2 py-1 w-20 text-right focus:border-indigo-500 focus:outline-none" />
-          </div>
-          <div class="flex items-center justify-between">
-            <label class="text-xs text-gray-400">Scale</label>
-            <input type="number" id="prop-scale" step="0.1" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-2 py-1 w-20 text-right focus:border-indigo-500 focus:outline-none" />
+            <label class="text-xs text-gray-400">Rotation °</label>
+            <input type="number" id="prop-rotation" step="1" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-2 py-1 w-20 text-right focus:border-indigo-500 focus:outline-none" />
           </div>
           <div class="flex items-center justify-between">
             <label class="text-xs text-gray-400">Opacity</label>
@@ -159,6 +173,12 @@
           <div class="flex items-center justify-between">
              <label class="text-xs text-gray-400">Color</label>
              <input type="color" id="prop-color" class="bg-transparent w-8 h-8 rounded cursor-pointer" />
+          </div>
+          <div class="flex items-center justify-between">
+            <label class="text-xs text-gray-400">Group</label>
+            <select id="prop-group-assign" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-2 py-1 w-28 focus:border-indigo-500 focus:outline-none">
+              <option value="">No Group</option>
+            </select>
           </div>
           <div class="flex justify-between pt-2">
             <button id="btn-duplicate-shape" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors">
@@ -219,6 +239,7 @@
             <option value="move">Move To</option>
             <option value="scale">Scale To</option>
             <option value="fade">Fade To</option>
+            <option value="rotate">Rotate To</option>
             <option value="bounce">Bouncing</option>
           </select>
         </div>
@@ -306,28 +327,28 @@
           </h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
-              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-plus-circle text-green-400"></i> Add Elements</div>
-              <p class="text-gray-400 leading-relaxed">Click <b>Button</b> or <b>Item</b> from the top-left toolbar to place a shape on the canvas. Drag shapes to reposition them.</p>
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-plus-circle text-green-400"></i> Add Elements & Groups</div>
+              <p class="text-gray-400 leading-relaxed">Click <b>Button</b>, <b>Item</b>, or <b>Folder (Group)</b> from the left toolbar. Drag shapes to reposition.</p>
             </div>
             <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
-              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-sliders text-blue-400"></i> Inspector Panel</div>
-              <p class="text-gray-400 leading-relaxed">Click a shape to open the <b>Inspector</b>. Edit position, scale, opacity, color, and name. Use <b>Duplicate</b> to clone.</p>
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-folders text-blue-400"></i> Grouping & Nesting</div>
+              <p class="text-gray-400 leading-relaxed">Assign shapes to <b>Groups</b> to organize them. Groups can be nested in other groups. Group animations apply to all children recursively.</p>
+            </div>
+            <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-sliders text-orange-400"></i> Inspector Panel</div>
+              <p class="text-gray-400 leading-relaxed">Select items to edit Position (X/Y), Scale (X/Y), Rotation, Opacity, Color, and assignment. Duplicate or Delete items here.</p>
             </div>
             <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
               <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-film-strip text-purple-400"></i> Animation Sequences</div>
-              <p class="text-gray-400 leading-relaxed">Click <b>+ Add Animation</b> in the Inspector. Choose type (Move, Scale, Fade, Bounce), set duration and <b>Easing Curve</b> using the Transition + Direction dropdowns (Godot style).</p>
+              <p class="text-gray-400 leading-relaxed">Click <b>+</b> in the Inspector. Choose <b>Move, Scale, Rotate, Fade, Bounce</b>. Set duration, step, and interpolation (Easing Curve).</p>
             </div>
             <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
-              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-bezier-curve text-yellow-400"></i> Curved Paths</div>
-              <p class="text-gray-400 leading-relaxed">Move animations show a <b>trajectory line</b> on canvas. Drag the <b>yellow control point</b> to create Bezier curves. Dashed lines show overshoot/anticipation for Back/Elastic eases.</p>
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-bezier-curve text-yellow-400"></i> Curved Paths & Offsets</div>
+              <p class="text-gray-400 leading-relaxed">Move animations show <b>trajectories</b>. Drag control points for Bezier curves. For Groups, the trajectory line sets a <b>relative move offset</b> for its children.</p>
             </div>
             <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
-              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-play-circle text-green-400"></i> Playback</div>
-              <p class="text-gray-400 leading-relaxed">Click <b>Play</b> in the topbar to run all animations by Sequence Step order. Click <b>▶</b> on individual steps to preview one animation.</p>
-            </div>
-            <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
-              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-file-arrow-down text-cyan-400"></i> Import / Export</div>
-              <p class="text-gray-400 leading-relaxed">Use <b>Export JSON</b> to save your scene. Use <b>Import JSON</b> to load from file or paste JSON data to restore a scene.</p>
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-play-circle text-green-400"></i> Playback & Export</div>
+              <p class="text-gray-400 leading-relaxed">Click <b>Play</b> to run animations by Step order. Export/Import your scene configuration as a <b>JSON</b> file.</p>
             </div>
           </div>
         </div>
