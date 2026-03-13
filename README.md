@@ -1,4 +1,7 @@
 # AnimCraft
+> Animation is not an easy journey, especially for busy people 
+
+
 AnimCraft is an interactive 2D animation sequencing, mocking, and graphing tool built with pure HTML, Vanilla JS, Tailwind CSS, and powered by GSAP. Designed with a Godot-like approach to UI nodes, easing curves, and element tracking, AnimCraft makes it easy to quickly sketch out rich UI and in-game animated choreographies with custom bezier paths and group animations.
 
 ## Features

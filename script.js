@@ -60,8 +60,8 @@ class BaseAction {
         this.type = type;
         this.step = step || 1;
         this.duration = duration !== undefined ? parseFloat(duration) : 1.0;
-        this.easeTransition = easeTransition || 'Quad'; 
-        this.easeDirection = easeDirection || 'InOut'; 
+        this.easeTransition = easeTransition || 'Linear'; 
+        this.easeDirection = easeDirection || 'In'; 
         this.vfxEnabled = false;
         this.vfxTiming = 'before';
     }
@@ -95,8 +95,8 @@ class MoveAction extends BaseAction {
         if (data.ease && typeof data.ease === 'string' && !data.easeTransition) {
              const parts = data.ease.split('.');
              // fallback to Quad InOut if old format is unsupported perfectly
-             this.easeTransition = 'Quad';
-             this.easeDirection = 'InOut';
+             this.easeTransition = 'Linear';
+             this.easeDirection = 'In';
         }
     }
 
@@ -1192,8 +1192,8 @@ function setupInspectorEvents() {
             targetX: startX,
             targetY: startY,
             duration: 1.0,
-            easeTransition: 'Quad',
-            easeDirection: 'InOut'
+            easeTransition: 'Linear',
+            easeDirection: 'In'
         }));
         
         if (s) renderAnimationList(s);
@@ -1870,8 +1870,8 @@ function showExport() {
                 type: a.type, 
                 step: a.step || 1, 
                 duration: a.duration, 
-                easeTransition: a.easeTransition || 'Quad',
-                easeDirection: a.easeDirection || 'InOut',
+                easeTransition: a.easeTransition || 'Linear',
+                easeDirection: a.easeDirection || 'In',
                 vfxEnabled: a.vfxEnabled,
                 vfxTiming: a.vfxTiming
             };
@@ -1895,7 +1895,7 @@ function showExport() {
         childIds: g.childIds,
         parentGroupId: g.parentGroupId || null,
         sequence: g.animations.map(a => {
-            let data = { type: a.type, step: a.step||1, duration: a.duration, easeTransition: a.easeTransition||'Quad', easeDirection: a.easeDirection||'InOut' };
+            let data = { type: a.type, step: a.step||1, duration: a.duration, easeTransition: a.easeTransition||'Linear', easeDirection: a.easeDirection||'In' };
             if(a.type === 'move') { data.targetX = Math.round(a.targetX); data.targetY = Math.round(a.targetY); }
             if(a.type === 'scale') { data.targetScaleX = a.targetScaleX; data.targetScaleY = a.targetScaleY; }
             if(a.type === 'fade') { data.targetOpacity = a.targetOpacity; }
