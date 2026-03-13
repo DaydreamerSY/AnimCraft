@@ -1,6 +1,6 @@
 {
   "tool": "AnimCraft - Animation Reference",
-  "timestamp": "2026-03-13T17:39:37.516Z",
+  "timestamp": "2026-03-13T17:45:28.151Z",
   "totalElements": 7,
   "elements": [
     {
@@ -199,7 +199,7 @@
     },
     {
       "id": "shape_pjhuv90i0",
-      "name": "Item PJHUV90I0",
+      "name": "Shield",
       "type": "item",
       "initialState": {
         "x": 1094,
