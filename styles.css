@@ -1,0 +1,145 @@
+/* Custom styles specifically for the canvas elements */
+
+/* Grid Background */
+#canvas-grid {
+  background-size: 50px 50px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+/* Base draggable shape styling */
+.shape-element {
+  position: absolute;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  will-change: transform, left, top;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  transform-origin: center center;
+  /* border inside so it doesn't change dimensions */
+  box-sizing: border-box;
+}
+
+.shape-element:active {
+  cursor: grabbing;
+}
+
+.shape-element.selected {
+  outline: 2px solid #6366f1; /* Indigo-500 */
+  outline-offset: 4px;
+}
+
+/* Specific shape variations */
+.shape-button {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-bottom-width: 4px;
+  background-color: #3b82f6; /* Default Blue */
+}
+
+.shape-item {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255,255,255,0.2);
+}
+
+.shape-star {
+  width: 48px;
+  height: 48px;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+/* Custom scrollbar for webkit */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #4b5563; /* gray-600 */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280; /* gray-500 */
+}
+
+/* Gray colors mapping from Tailwind for custom CSS */
+.bg-gray-650 {
+  background-color: #3f4451;
+}
+.bg-gray-850 {
+  background-color: #1a1d24;
+}
+
+/* Trajectory styling */
+.trajectory-line {
+  stroke: rgba(99, 102, 241, 0.6); /* indigo-500 with opacity */
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+  fill: none;
+  marker-end: url(#arrowhead);
+  animation: dash 5s linear infinite;
+}
+
+.trajectory-path {
+    stroke: rgba(99, 102, 241, 0.4); 
+    stroke-width: 2;
+    fill: none;
+    stroke-dasharray: 6 6;
+    animation: dash 5s linear infinite;
+}
+
+/* Hide Trajectories During Playback */
+.is-playing .trajectory-line,
+.is-playing .trajectory-path,
+.is-playing .target-node,
+.is-playing .ctrl-node,
+.is-playing .ctrl-line,
+.is-playing .generated-path {
+  display: none !important;
+}
+
+/* Draggable target points for MoveTo */
+.target-node {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #fbbf24; /* amber-400 */
+  border: 2px solid white;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  z-index: 20;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.target-node:active {
+  cursor: grabbing;
+}
+.target-node:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.trajectory-point {
+  fill: #818cf8; /* indigo-400 */
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -100;
+  }
+}

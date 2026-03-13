@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animation Reference Creator</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <!-- GSAP & Plugins -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/MotionPathPlugin.min.js"></script>
+  
+  <!-- FileSaver for Export (Optional, using Vanilla for now) -->
+  
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen w-screen overflow-hidden flex flex-col font-sans">
+  
+  <!-- Topbar -->
+  <header class="h-16 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-6 shadow-sm z-10">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg">
+        <i class="ph ph-magic-wand text-white text-xl"></i>
+      </div>
+      <h1 class="text-xl font-bold tracking-tight text-white">AnimCraft</h1>
+    </div>
+    
+    <div class="flex items-center gap-4">
+      <div class="bg-gray-900 rounded-lg p-1 flex gap-1">
+        <button id="btn-play-toggle" class="flex items-center justify-center gap-2 w-32 px-4 py-1.5 rounded-md bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors">
+          <i class="ph-fill ph-play" id="play-icon"></i> <span id="play-text">Play</span>
+        </button>
+      </div>
+      
+      <div class="h-6 w-px bg-gray-700 mx-2"></div>
+      
+      <button id="btn-import-modal" class="flex items-center gap-2 px-4 py-1.5 rounded-md border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+        <i class="ph ph-file-arrow-up"></i> Import JSON
+      </button>
+
+      <button id="btn-export" class="flex items-center gap-2 px-4 py-1.5 rounded-md border border-gray-600 text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+        <i class="ph ph-export"></i> Export JSON
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <main class="flex-1 flex overflow-hidden">
+    
+    <!-- Left Sidebar (Tools & Outliner) -->
+    <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col z-10 shadow-lg relative">
+      <!-- Toolbar -->
+      <div class="p-4 border-b border-gray-700">
+        <h3 class="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-3">Add Elements</h3>
+        <div class="flex gap-2">
+          <button class="tool-btn flex-1 flex flex-col items-center justify-center p-2 rounded-lg bg-gray-700 hover:bg-indigo-500 transition-colors border border-gray-600 hover:border-indigo-400 group" data-shape="button" title="Add Button">
+            <i class="ph ph-rectangle text-xl text-gray-300 group-hover:text-white mb-1"></i>
+            <span class="text-[10px] text-gray-400 group-hover:text-white">Button</span>
+          </button>
+          <button class="tool-btn flex-1 flex flex-col items-center justify-center p-2 rounded-lg bg-gray-700 hover:bg-indigo-500 transition-colors border border-gray-600 hover:border-indigo-400 group" data-shape="item" title="Add Item">
+            <i class="ph ph-circle text-xl text-gray-300 group-hover:text-white mb-1"></i>
+            <span class="text-[10px] text-gray-400 group-hover:text-white">Item</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Outliner / Elements List -->
+      <div class="flex-1 flex flex-col min-h-0 bg-gray-800/50">
+        <div class="px-4 py-3 border-b border-gray-700 flex justify-between items-center bg-gray-800 sticky top-0 shadow-sm">
+          <h3 class="text-xs text-gray-400 font-semibold uppercase tracking-wider flex items-center gap-1">
+             <i class="ph ph-list-dashes"></i> Elements
+          </h3>
+        </div>
+        <div id="outliner-list" class="flex-1 overflow-y-auto p-2 space-y-1">
+          <!-- Outliner items injected here -->
+          <div class="text-center text-gray-500 text-xs py-8 italic" id="empty-outliner">
+            No elements on canvas.
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Center Area -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Canvas Area -->
+      <section class="flex-1 relative bg-gray-950 overflow-hidden shadow-inner" id="canvas-container">
+        <div id="canvas-grid" class="absolute inset-0 pointer-events-none opacity-20"></div>
+        <!-- SVG path container for trajectories -->
+        <svg id="trajectory-svg" class="absolute inset-0 pointer-events-none z-0 w-full h-full">
+          <defs>
+            <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0, 6 3, 0 6" fill="#818cf8" />
+            </marker>
+          </defs>
+        </svg>
+        <!-- Shapes will be appended here -->
+        <div id="canvas-layer" class="absolute inset-0 w-full h-full"></div>
+      </section>
+
+      <!-- Timeline Panel (Bottom) -->
+      <section id="timeline-section" class="h-48 bg-gray-800 border-t border-gray-700 flex flex-col shadow-[0_-4px_6px_rgba(0,0,0,0.2)] z-20 shrink-0 relative">
+         <div id="timeline-resizer" class="absolute top-0 left-0 right-0 h-1.5 -translate-y-[0.5px] bg-transparent hover:bg-indigo-500 cursor-ns-resize z-30 transition-colors w-full"></div>
+         <div class="px-4 py-2 border-b border-gray-700 flex justify-between items-center bg-gray-800">
+           <h3 class="text-xs text-gray-400 font-semibold uppercase tracking-wider flex items-center gap-2"><i class="ph ph-clock"></i> Global Timeline Overview</h3>
+         </div>
+         <div class="flex-1 overflow-x-auto p-4 flex gap-4 items-start" id="timeline-tracks">
+            <!-- Steps injected here -->
+            <div class="text-gray-500 text-xs italic w-full text-center mt-8">No animations added yet.</div>
+         </div>
+      </section>
+    </div>
+
+    <!-- Right Sidebar (Inspector & Timeline) -->
+    <aside class="w-80 bg-gray-800 border-l border-gray-700 flex flex-col z-10 shadow-xl overflow-y-auto hidden" id="inspector-panel">
+      <!-- Info Header -->
+      <div class="p-4 border-b border-gray-700 bg-gray-800/80 sticky top-0 z-20 backdrop-blur-md">
+        <div class="flex justify-between items-center mb-1">
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="ph ph-sliders"></i> Inspector
+          </h2>
+          <button id="close-inspector" class="text-gray-400 hover:text-white"><i class="ph ph-x text-lg"></i></button>
+        </div>
+        <input type="text" id="prop-name" class="bg-transparent border-b border-gray-600 hover:border-indigo-400 focus:border-indigo-500 text-sm font-bold text-indigo-300 outline-none w-full transition-colors truncate pb-1 mt-1" placeholder="Shape Name" />
+        <div class="text-[10px] text-gray-500 mt-1 uppercase font-semibold" id="selected-shape-type">Type: None</div>
+      </div>
+
+      <!-- Properties -->
+      <div class="p-4 border-b border-gray-700">
+        <div class="flex items-center justify-between cursor-pointer mb-3 group" onclick="document.getElementById('props-content').classList.toggle('hidden'); this.querySelector('i').classList.toggle('rotate-180')">
+            <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider group-hover:text-white transition-colors">Properties</h3>
+            <i class="ph ph-caret-down text-gray-400 transition-transform"></i>
+        </div>
+        <div id="props-content" class="space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="text-xs text-gray-400">Position X</label>
+            <input type="number" id="prop-x" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-2 py-1 w-20 text-right focus:border-indigo-500 focus:outline-none" />
+          </div>
+          <div class="flex items-center justify-between">
+            <label class="text-xs text-gray-400">Position Y</label>
+            <input type="number" id="prop-y" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-2 py-1 w-20 text-right focus:border-indigo-500 focus:outline-none" />
+          </div>
+          <div class="flex items-center justify-between">
+            <label class="text-xs text-gray-400">Scale</label>
+            <input type="number" id="prop-scale" step="0.1" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-2 py-1 w-20 text-right focus:border-indigo-500 focus:outline-none" />
+          </div>
+          <div class="flex items-center justify-between">
+            <label class="text-xs text-gray-400">Opacity</label>
+            <input type="number" id="prop-opacity" step="0.1" min="0" max="1" class="bg-gray-700 border border-gray-600 text-white text-xs rounded px-2 py-1 w-20 text-right focus:border-indigo-500 focus:outline-none" />
+          </div>
+          <div class="flex items-center justify-between">
+             <label class="text-xs text-gray-400">Color</label>
+             <input type="color" id="prop-color" class="bg-transparent w-8 h-8 rounded cursor-pointer" />
+          </div>
+          <div class="flex justify-between pt-2">
+            <button id="btn-duplicate-shape" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors">
+              <i class="ph ph-copy"></i> Duplicate
+            </button>
+            <button id="btn-delete-shape" class="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors">
+              <i class="ph ph-trash"></i> Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Animations (DOTween Style) -->
+      <div class="flex-1 flex flex-col min-h-0">
+        <div class="p-4 flex justify-between items-center group cursor-pointer" onclick="document.getElementById('animation-list').classList.toggle('hidden'); this.querySelector('i.ph-caret-down').classList.toggle('rotate-180')">
+          <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider group-hover:text-white transition-colors flex items-center gap-1">Animation Sequences <i class="ph ph-caret-down text-gray-400 transition-transform"></i></h3>
+          <button id="btn-add-anim" class="text-indigo-400 hover:text-indigo-300 transition-colors" onclick="event.stopPropagation()">
+            <i class="ph ph-plus-circle text-xl"></i>
+          </button>
+        </div>
+        
+        <div id="animation-list" class="flex-1 overflow-y-auto p-4 pt-0 space-y-3">
+          <!-- Animation steps will be rendered here -->
+          <div class="text-center text-gray-500 text-xs py-8 italic" id="empty-anim">
+            No animations. Click + to add a sequence.
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Empty State overlay for inspector -->
+    <aside class="w-80 bg-gray-850 border-l border-gray-700 flex flex-col items-center justify-center text-center p-6" id="inspector-placeholder">
+      <div class="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mb-4">
+        <i class="ph ph-cursor-click text-2xl text-gray-500"></i>
+      </div>
+      <h3 class="text-gray-300 font-medium mb-1">No Shape Selected</h3>
+      <p class="text-xs text-gray-500">Click on a shape or add a new one from the toolbar to view and edit its properties and animations.</p>
+    </aside>
+
+  </main>
+
+  <!-- Animation Step Template -->
+  <template id="anim-step-template">
+    <div class="anim-step bg-gray-700 border border-gray-600 rounded-lg overflow-hidden shadow-sm group">
+      <div class="p-2 bg-gray-650 flex items-center justify-between border-b border-gray-600 cursor-move">
+        <div class="flex items-center gap-2">
+          <i class="ph ph-dots-six-vertical text-gray-500"></i>
+          <span class="text-xs font-bold text-gray-200 anim-type-label">MoveTo</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <button class="btn-play-step text-gray-400 hover:text-green-400 transition-colors"><i class="ph-fill ph-play"></i></button>
+          <button class="btn-remove-step text-gray-400 hover:text-red-400 transition-colors"><i class="ph ph-x"></i></button>
+        </div>
+      </div>
+      <div class="p-3 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <select class="spec-type bg-gray-800 border-none text-white text-xs rounded px-2 py-1 focus:ring-1 focus:ring-indigo-500 w-full focus:outline-none">
+            <option value="move">Move To</option>
+            <option value="scale">Scale To</option>
+            <option value="fade">Fade To</option>
+            <option value="bounce">Bouncing</option>
+          </select>
+        </div>
+        
+        <div class="flex items-center justify-between mb-2">
+            <label class="text-[10px] text-indigo-300 font-bold block">Start at Sequence Step</label>
+            <input type="number" class="spec-step bg-indigo-900/50 border border-indigo-500/30 text-indigo-200 text-xs rounded px-2 py-1 w-12 text-center focus:ring-1 focus:ring-indigo-400 focus:outline-none" value="1" step="1" min="1" />
+        </div>
+
+        <!-- Type specific inputs container -->
+        <div class="anim-params grid grid-cols-2 gap-2 mt-2">
+          <!-- Dynamic injected based on type -->
+        </div>
+
+        <div class="border-t border-gray-600 pt-2 mt-2 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <label class="text-[10px] text-gray-400">Duration (s)</label>
+            <input type="number" class="spec-duration bg-gray-800 border-none text-white text-xs rounded px-2 py-1 w-20 focus:ring-1 focus:ring-indigo-500 focus:outline-none" value="1.0" step="0.1" min="0" />
+          </div>
+          <div>
+            <label class="text-[10px] text-gray-400 block mb-1">Easing Curve</label>
+            <div class="ease-selects-container grid grid-cols-2 gap-1">
+              <select class="spec-transition bg-gray-800 border-none text-white text-[10px] rounded px-1 py-1 focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+                <!-- Populated by script -->
+              </select>
+              <select class="spec-direction bg-gray-800 border-none text-white text-[10px] rounded px-1 py-1 focus:ring-1 focus:ring-indigo-500 focus:outline-none">
+                <!-- Populated by script -->
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Modal Component for JSON Import/Export -->
+  <div id="export-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity">
+    <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden transform scale-95 transition-transform">
+      <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800">
+        <h3 class="text-lg font-bold text-white" id="modal-title">JSON Data</h3>
+        <button id="close-modal" class="text-gray-400 hover:text-white"><i class="ph ph-x text-lg"></i></button>
+      </div>
+      <div class="p-0 relative">
+        <textarea id="json-output" class="w-full h-80 bg-gray-900 text-green-400 p-4 font-mono text-xs border-none focus:outline-none resize-none" placeholder="Paste Animation JSON data here..."></textarea>
+      </div>
+      <div class="p-4 border-t border-gray-700 bg-gray-800 flex justify-end items-center">
+        <!-- Tools: Import -->
+        <div class="flex gap-2 hidden" id="modal-import-tools">
+            <label class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded font-medium transition-colors cursor-pointer text-sm flex items-center gap-1">
+                <i class="ph ph-file"></i> Load File
+                <input type="file" id="btn-import-file" accept=".json" class="hidden" />
+            </label>
+            <button id="btn-apply-json" class="px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded font-medium transition-colors text-sm flex items-center gap-1"><i class="ph ph-check"></i> Apply Pasted Data</button>
+        </div>
+        <!-- Tools: Export -->
+        <div class="flex gap-2 hidden" id="modal-export-tools">
+            <button id="btn-copy-json" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded font-medium transition-colors text-sm flex items-center gap-1"><i class="ph ph-copy"></i> Copy</button>
+            <button id="btn-download-json" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium transition-colors text-sm flex items-center gap-1"><i class="ph ph-download-simple"></i> Download .json</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help FAB Button (bottom-right corner) -->
+  <button id="btn-help" class="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 text-white shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center text-xl" title="Help & Cheat Sheet">
+    <i class="ph-fill ph-question"></i>
+  </button>
+
+  <!-- Help Modal -->
+  <div id="help-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60] flex items-center justify-center hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden transform scale-95 transition-transform duration-200 flex flex-col">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-800/80">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center">
+            <i class="ph-fill ph-question text-white text-lg"></i>
+          </div>
+          <h2 class="text-lg font-bold text-white">Help & Cheat Sheet</h2>
+        </div>
+        <button id="close-help-modal" class="text-gray-400 hover:text-white transition-colors text-xl"><i class="ph ph-x"></i></button>
+      </div>
+
+      <!-- Scrollable Content -->
+      <div class="overflow-y-auto flex-1 px-6 py-5 space-y-6">
+
+        <!-- How to Use -->
+        <div>
+          <h3 class="text-sm font-bold text-indigo-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <i class="ph ph-book-open-text"></i> How to Use AnimCraft
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-plus-circle text-green-400"></i> Add Elements</div>
+              <p class="text-gray-400 leading-relaxed">Click <b>Button</b> or <b>Item</b> from the top-left toolbar to place a shape on the canvas. Drag shapes to reposition them.</p>
+            </div>
+            <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-sliders text-blue-400"></i> Inspector Panel</div>
+              <p class="text-gray-400 leading-relaxed">Click a shape to open the <b>Inspector</b>. Edit position, scale, opacity, color, and name. Use <b>Duplicate</b> to clone.</p>
+            </div>
+            <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-film-strip text-purple-400"></i> Animation Sequences</div>
+              <p class="text-gray-400 leading-relaxed">Click <b>+ Add Animation</b> in the Inspector. Choose type (Move, Scale, Fade, Bounce), set duration and <b>Easing Curve</b> using the Transition + Direction dropdowns (Godot style).</p>
+            </div>
+            <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-bezier-curve text-yellow-400"></i> Curved Paths</div>
+              <p class="text-gray-400 leading-relaxed">Move animations show a <b>trajectory line</b> on canvas. Drag the <b>yellow control point</b> to create Bezier curves. Dashed lines show overshoot/anticipation for Back/Elastic eases.</p>
+            </div>
+            <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-play-circle text-green-400"></i> Playback</div>
+              <p class="text-gray-400 leading-relaxed">Click <b>Play</b> in the topbar to run all animations by Sequence Step order. Click <b>▶</b> on individual steps to preview one animation.</p>
+            </div>
+            <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
+              <div class="font-semibold text-gray-200 mb-1 flex items-center gap-1.5"><i class="ph ph-file-arrow-down text-cyan-400"></i> Import / Export</div>
+              <p class="text-gray-400 leading-relaxed">Use <b>Export JSON</b> to save your scene. Use <b>Import JSON</b> to load from file or paste JSON data to restore a scene.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Easing Curve Reference -->
+        <div>
+          <h3 class="text-sm font-bold text-indigo-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <i class="ph ph-chart-line-up"></i> Easing Curve Reference
+          </h3>
+          <div class="bg-gray-900/60 rounded-lg p-3 border border-gray-700">
+            <div class="grid grid-cols-2 gap-3 text-[11px] mb-3">
+              <div>
+                <span class="font-bold text-gray-300">Transition:</span>
+                <span class="text-gray-400">Linear, Sine, Quad, Cubic, Quart, Quint, Expo, Circ, Back, Elastic, Bounce, Spring</span>
+              </div>
+              <div>
+                <span class="font-bold text-gray-300">Direction:</span>
+                <span class="text-gray-400">In (accelerate), Out (decelerate), InOut (both), OutIn (reverse both)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Godot Tweening Cheat Sheet -->
+        <div>
+          <h3 class="text-sm font-bold text-indigo-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <i class="ph ph-image"></i> Godot Tweening Cheat Sheet
+          </h3>
+          <div class="bg-gray-950 rounded-lg border border-gray-700 overflow-hidden">
+            <img src="godot-tweening-cheat-sheet-v0-zdzhci8octp41.webp" alt="Godot Tweening Cheat Sheet" class="w-full h-auto" />
+          </div>
+          <p class="text-[10px] text-gray-500 mt-1 italic">Credit: u/wandomPewlin — Godot Engine v3.2.stable.official</p>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-3 border-t border-gray-700 bg-gray-800/80 flex justify-end">
+        <button id="close-help-modal-footer" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors text-sm">Got it!</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

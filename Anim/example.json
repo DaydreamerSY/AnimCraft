@@ -1,0 +1,141 @@
+{
+  "tool": "AnimCraft - Animation Reference",
+  "timestamp": "2026-03-13T09:54:21.316Z",
+  "totalElements": 4,
+  "elements": [
+    {
+      "id": "shape_snpwcd8qi",
+      "name": "btn_liveop",
+      "type": "button",
+      "initialState": {
+        "x": 289,
+        "y": 265,
+        "scale": 1,
+        "opacity": 1,
+        "color": "#3b82f6"
+      },
+      "sequence": [
+        {
+          "type": "bounce",
+          "step": 3,
+          "duration": 0.3,
+          "easeTransition": "Linear",
+          "easeDirection": "In",
+          "vfxEnabled": false,
+          "vfxTiming": "before"
+        }
+      ]
+    },
+    {
+      "id": "shape_3m7rud4xn",
+      "name": "item_liveop",
+      "type": "item",
+      "initialState": {
+        "x": 408,
+        "y": 293,
+        "scale": 1,
+        "opacity": 0,
+        "color": "#f59e0b"
+      },
+      "sequence": [
+        {
+          "type": "fade",
+          "step": 1,
+          "duration": 0.3,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "vfxEnabled": true,
+          "vfxTiming": "before",
+          "targetOpacity": 1
+        },
+        {
+          "type": "move",
+          "step": 2,
+          "duration": 0.5,
+          "easeTransition": "Back",
+          "easeDirection": "In",
+          "vfxEnabled": true,
+          "vfxTiming": "before",
+          "targetX": 288,
+          "targetY": 265,
+          "startX": 408,
+          "startY": 293,
+          "ctrlX": 374,
+          "ctrlY": 180
+        },
+        {
+          "type": "fade",
+          "step": 3,
+          "duration": 0.2,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "vfxEnabled": true,
+          "vfxTiming": "after",
+          "targetOpacity": 0
+        }
+      ]
+    },
+    {
+      "id": "shape_z7hejanvg",
+      "name": "Button Z7HEJANVG",
+      "type": "button",
+      "initialState": {
+        "x": 48,
+        "y": 27,
+        "scale": 1,
+        "opacity": 1,
+        "color": "#3b82f6"
+      },
+      "sequence": []
+    },
+    {
+      "id": "shape_1gn1v4rb4",
+      "name": "item_liveop (Copy)",
+      "type": "item",
+      "initialState": {
+        "x": 425,
+        "y": 306,
+        "scale": 0.5,
+        "opacity": 0,
+        "color": "#0af5d9"
+      },
+      "sequence": [
+        {
+          "type": "fade",
+          "step": 1,
+          "duration": 0.3,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "vfxEnabled": true,
+          "vfxTiming": "before",
+          "targetOpacity": 1
+        },
+        {
+          "type": "move",
+          "step": 2,
+          "duration": 0.5,
+          "easeTransition": "Back",
+          "easeDirection": "In",
+          "vfxEnabled": false,
+          "vfxTiming": "before",
+          "targetX": 306,
+          "targetY": 279,
+          "startX": 425,
+          "startY": 306,
+          "ctrlX": 374,
+          "ctrlY": 180
+        },
+        {
+          "type": "fade",
+          "step": 3,
+          "duration": 0.2,
+          "easeTransition": "Quad",
+          "easeDirection": "InOut",
+          "vfxEnabled": true,
+          "vfxTiming": "after",
+          "targetOpacity": 0
+        }
+      ]
+    }
+  ]
+}
